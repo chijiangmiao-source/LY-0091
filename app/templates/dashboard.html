@@ -1,0 +1,189 @@
+{% extends "layout.html" %}
+{% block page_title %}工作台{% endblock %}
+{% block page_content %}
+<div x-data="dashboardApp()" x-init="loadData()" class="space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">今日取号</p>
+                    <p class="text-3xl font-bold text-gray-800 mt-2" x-text="stats.today_total || 0"></p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">排队中</p>
+                    <p class="text-3xl font-bold text-gray-800 mt-2" x-text="stats.waiting_count || 0"></p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">使用中试衣间</p>
+                    <p class="text-3xl font-bold text-gray-800 mt-2" x-text="stats.occupied_rooms || 0"></p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">待处理遗留物</p>
+                    <p class="text-3xl font-bold text-gray-800 mt-2" x-text="stats.pending_lost_items || 0"></p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">排队概览</h3>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                    <span class="text-gray-600">已叫号</span>
+                    <span class="text-xl font-bold text-blue-600" x-text="stats.called_count || 0"></span>
+                </div>
+                <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                    <span class="text-gray-600">今日过号</span>
+                    <span class="text-xl font-bold text-orange-600" x-text="stats.today_overtime || 0"></span>
+                </div>
+                <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                    <span class="text-gray-600">平均等待时长</span>
+                    <span class="text-xl font-bold text-green-600" x-text="(stats.avg_wait_minutes || 0) + ' 分钟'"></span>
+                </div>
+                <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                    <span class="text-gray-600">过号率</span>
+                    <span class="text-xl font-bold text-purple-600" x-text="(stats.overtime_rate || 0) + '%'"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">试衣间状态</h3>
+            <div class="grid grid-cols-2 gap-4" x-data="{ statuses: [
+                { key: 'available', label: '空闲', color: 'green' },
+                { key: 'occupied', label: '占用中', color: 'yellow' },
+                { key: 'cleaning', label: '待清理', color: 'blue' },
+                { key: 'sealed', label: '已封存', color: 'red' }
+            ]}">
+                <template x-for="s in statuses" :key="s.key">
+                    <div class="p-4 rounded-lg border"
+                         :class="{
+                             'bg-green-50 border-green-200': s.color === 'green',
+                             'bg-yellow-50 border-yellow-200': s.color === 'yellow',
+                             'bg-blue-50 border-blue-200': s.color === 'blue',
+                             'bg-red-50 border-red-200': s.color === 'red'
+                         }">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600" x-text="s.label"></span>
+                            <span class="text-2xl font-bold"
+                                  :class="{
+                                      'text-green-600': s.color === 'green',
+                                      'text-yellow-600': s.color === 'yellow',
+                                      'text-blue-600': s.color === 'blue',
+                                      'text-red-600': s.color === 'red'
+                                  }"
+                                  x-text="stats['rooms_' + s.key] || 0"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <div class="mt-6 pt-4 border-t">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">试衣间总数</span>
+                    <span class="text-2xl font-bold text-gray-800" x-text="stats.total_rooms || 0"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">快捷操作</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="/queue" class="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg text-center transition">
+                <svg class="w-8 h-8 mx-auto text-blue-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span class="text-sm font-medium text-blue-700">现场取号</span>
+            </a>
+            <a href="/queue" class="p-4 bg-green-50 hover:bg-green-100 rounded-lg text-center transition">
+                <svg class="w-8 h-8 mx-auto text-green-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+                <span class="text-sm font-medium text-green-700">叫号入场</span>
+            </a>
+            <a href="/lost-items" class="p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg text-center transition">
+                <svg class="w-8 h-8 mx-auto text-yellow-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                <span class="text-sm font-medium text-yellow-700">遗留物登记</span>
+            </a>
+            <a href="/stats" class="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg text-center transition">
+                <svg class="w-8 h-8 mx-auto text-purple-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                <span class="text-sm font-medium text-purple-700">数据分析</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+function dashboardApp() {
+    return {
+        stats: {},
+        async loadData() {
+            const [overview, queue, rooms, lostItems] = await Promise.all([
+                API.get('/api/stats/overview?days=1'),
+                API.get('/api/queue/waiting'),
+                API.get('/api/fitting-rooms'),
+                API.get('/api/lost-items?status=registered,sealed')
+            ]);
+
+            this.stats = {
+                today_total: overview?.data?.total_records || 0,
+                waiting_count: queue?.data?.waiting_count || 0,
+                called_count: queue?.data?.called_count || 0,
+                today_overtime: overview?.data?.overtime_records || 0,
+                avg_wait_minutes: overview?.data?.avg_wait_minutes || 0,
+                overtime_rate: overview?.data?.overtime_rate || 0,
+                occupied_rooms: rooms?.data?.filter(r => r.status === 'occupied').length || 0,
+                rooms_available: rooms?.data?.filter(r => r.status === 'available').length || 0,
+                rooms_occupied: rooms?.data?.filter(r => r.status === 'occupied').length || 0,
+                rooms_cleaning: rooms?.data?.filter(r => r.status === 'cleaning').length || 0,
+                rooms_sealed: rooms?.data?.filter(r => r.status === 'sealed').length || 0,
+                total_rooms: rooms?.data?.length || 0,
+                pending_lost_items: lostItems?.data?.length || 0
+            };
+        }
+    }
+}
+</script>
+{% endblock %}

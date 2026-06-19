@@ -1,0 +1,270 @@
+{% extends "layout.html" %}
+{% block page_title %}试衣间管理{% endblock %}
+{% block page_content %}
+<div x-data="fittingRoomsApp()" x-init="loadAll()" class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div class="flex items-center space-x-4">
+            <select x-model="filter.store_id" @change="loadRooms()"
+                class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">全部门店</option>
+                <template x-for="s in stores" :key="s.id">
+                    <option :value="s.id" x-text="s.floor + 'F - ' + s.name"></option>
+                </template>
+            </select>
+            <select x-model="filter.status" @change="loadRooms()"
+                class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">全部状态</option>
+                <template x-for="opt in statusOptions" :key="opt.value">
+                    <option :value="opt.value" x-text="opt.label"></option>
+                </template>
+            </select>
+        </div>
+        <button @click="openCreateModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            新增试衣间
+        </button>
+    </div>
+
+    <div class="grid grid-cols-4 gap-4">
+        <template x-for="opt in statusOptions" :key="opt.value">
+            <div class="bg-white rounded-lg p-4 shadow-sm border"
+                 :class="{
+                     'border-green-200': opt.value === 'available',
+                     'border-yellow-200': opt.value === 'occupied',
+                     'border-blue-200': opt.value === 'cleaning',
+                     'border-red-200': opt.value === 'sealed'
+                 }">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-500" x-text="opt.label"></span>
+                    <span class="text-2xl font-bold"
+                          :class="{
+                              'text-green-600': opt.value === 'available',
+                              'text-yellow-600': opt.value === 'occupied',
+                              'text-blue-600': opt.value === 'cleaning',
+                              'text-red-600': opt.value === 'sealed'
+                          }"
+                          x-text="rooms.filter(r => r.status === opt.value).length"></span>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">房间编号</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">所属门店</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">类型</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">状态</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">最近清场</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">备注</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">操作</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <template x-if="rooms.length === 0">
+                    <tr><td colspan="7" class="px-6 py-12 text-center text-gray-400">暂无试衣间数据</td></tr>
+                </template>
+                <template x-for="r in rooms" :key="r.id">
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 font-medium text-gray-800" x-text="r.room_number"></td>
+                        <td class="px-6 py-4 text-gray-600" x-text="(r.store_floor ? r.store_floor + 'F - ' : '') + (r.store_name || '-')"></td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs" x-text="r.room_type_text"></span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 rounded text-xs font-medium"
+                                :class="{
+                                    'bg-green-100 text-green-700': r.status === 'available',
+                                    'bg-yellow-100 text-yellow-700': r.status === 'occupied',
+                                    'bg-blue-100 text-blue-700': r.status === 'cleaning',
+                                    'bg-red-100 text-red-700': r.status === 'sealed'
+                                }"
+                                x-text="r.status_text"></span>
+                        </td>
+                        <td class="px-6 py-4 text-gray-600" x-text="formatDate(r.last_clean_time)"></td>
+                        <td class="px-6 py-4 text-gray-500" x-text="r.remark || '-'"></td>
+                        <td class="px-6 py-4 space-x-2">
+                            <button x-show="r.status === 'cleaning'" @click="handleClean(r)"
+                                class="text-blue-600 hover:text-blue-700 text-xs">清理完成</button>
+                            <button @click="openEditModal(r)" class="text-blue-600 hover:text-blue-700 text-xs">编辑</button>
+                            <button @click="handleDelete(r)" class="text-red-600 hover:text-red-700 text-xs">删除</button>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 mx-4">
+            <h3 class="text-lg font-semibold mb-4" x-text="isEditing ? '编辑试衣间' : '新增试衣间'"></h3>
+            <form @submit.prevent="handleSubmit" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">房间编号 *</label>
+                    <input type="text" x-model="form.room_number" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="如：A101">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">所属门店</label>
+                        <select x-model="form.store_id"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">通用试衣间</option>
+                            <template x-for="s in stores" :key="s.id">
+                                <option :value="s.id" x-text="s.floor + 'F - ' + s.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">房间类型 *</label>
+                        <select x-model="form.room_type" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <template x-for="opt in typeOptions" :key="opt.value">
+                                <option :value="opt.value" x-text="opt.label"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                        <select x-model="form.status"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <template x-for="opt in statusOptions" :key="opt.value">
+                                <option :value="opt.value" x-text="opt.label"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">备注</label>
+                    <textarea x-model="form.remark" rows="2"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="选填"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" @click="showModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                        取消
+                    </button>
+                    <button type="submit" :disabled="submitting"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition">
+                        <span x-text="submitting ? '保存中...' : '保存'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+function fittingRoomsApp() {
+    return {
+        rooms: [],
+        stores: [],
+        statusOptions: [],
+        typeOptions: [],
+        filter: { store_id: '', status: '' },
+        showModal: false,
+        isEditing: false,
+        submitting: false,
+        form: { id: null, room_number: '', store_id: '', room_type: 'standard', status: 'available', remark: '' },
+
+        async loadAll() {
+            await Promise.all([this.loadRooms(), this.loadStores(), this.loadOptions()]);
+        },
+
+        async loadRooms() {
+            let url = '/api/fitting-rooms';
+            const params = [];
+            if (this.filter.store_id) params.push('store_id=' + this.filter.store_id);
+            if (this.filter.status) params.push('status=' + this.filter.status);
+            if (params.length) url += '?' + params.join('&');
+            const res = await API.get(url);
+            if (res?.code === 0) this.rooms = res.data;
+        },
+
+        async loadStores() {
+            const res = await API.get('/api/stores?status=true');
+            if (res?.code === 0) this.stores = res.data;
+        },
+
+        async loadOptions() {
+            const res = await API.get('/api/fitting-rooms/options');
+            if (res?.code === 0) {
+                this.statusOptions = res.data.status_options;
+                this.typeOptions = res.data.type_options;
+            }
+        },
+
+        openCreateModal() {
+            this.isEditing = false;
+            this.form = { id: null, room_number: '', store_id: '', room_type: 'standard', status: 'available', remark: '' };
+            this.showModal = true;
+        },
+
+        openEditModal(room) {
+            this.isEditing = true;
+            this.form = {
+                id: room.id,
+                room_number: room.room_number,
+                store_id: room.store?.id || '',
+                room_type: room.room_type,
+                status: room.status,
+                remark: room.remark || ''
+            };
+            this.showModal = true;
+        },
+
+        async handleSubmit() {
+            this.submitting = true;
+            try {
+                let res;
+                if (this.isEditing) {
+                    res = await API.put('/api/fitting-rooms/' + this.form.id, this.form);
+                } else {
+                    res = await API.post('/api/fitting-rooms', this.form);
+                }
+                if (res?.code === 0) {
+                    toast(this.isEditing ? '更新成功' : '创建成功', 'success');
+                    this.showModal = false;
+                    this.loadRooms();
+                } else {
+                    toast(res?.message || '操作失败', 'error');
+                }
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        async handleClean(room) {
+            if (!confirm('确认已完成 ' + room.room_number + ' 的清理工作？')) return;
+            const res = await API.post('/api/fitting-rooms/' + room.id + '/clean');
+            if (res?.code === 0) {
+                toast(res.message || '清理完成', 'success');
+                this.loadRooms();
+            } else {
+                toast(res?.message || '操作失败', 'error');
+            }
+        },
+
+        async handleDelete(room) {
+            if (!confirm('确定删除试衣间 "' + room.room_number + '" 吗？')) return;
+            const res = await API.del('/api/fitting-rooms/' + room.id);
+            if (res?.code === 0) {
+                toast('删除成功', 'success');
+                this.loadRooms();
+            } else {
+                toast(res?.message || '删除失败', 'error');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

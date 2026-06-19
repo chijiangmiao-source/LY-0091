@@ -1,0 +1,316 @@
+{% extends "layout.html" %}
+{% block page_title %}遗留物管理{% endblock %}
+{% block page_content %}
+<div x-data="lostItemsApp()" x-init="loadAll()" class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div class="flex items-center space-x-4">
+            <select x-model="filter.status" @change="loadItems()"
+                class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">全部状态</option>
+                <template x-for="opt in statusOptions" :key="opt.value">
+                    <option :value="opt.value" x-text="opt.label"></option>
+                </template>
+            </select>
+        </div>
+        <button @click="openRegisterModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            登记遗留物
+        </button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">物品名称</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">描述</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">试衣间</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">关联号码</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">登记时间</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">封存位置</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">状态</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">操作</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <template x-if="items.length === 0">
+                    <tr><td colspan="8" class="px-6 py-12 text-center text-gray-400">暂无遗留物记录</td></tr>
+                </template>
+                <template x-for="item in items" :key="item.id">
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 font-medium text-gray-800" x-text="item.item_name"></td>
+                        <td class="px-6 py-4 text-gray-600 max-w-xs truncate" x-text="item.item_description"></td>
+                        <td class="px-6 py-4 text-gray-600" x-text="item.room_number || '-'"></td>
+                        <td class="px-6 py-4 text-gray-600" x-text="item.ticket_number || '-'"></td>
+                        <td class="px-6 py-4 text-gray-600" x-text="formatDate(item.register_time)"></td>
+                        <td class="px-6 py-4 text-gray-600" x-text="item.seal_location || '-'"></td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 rounded text-xs font-medium"
+                                :class="{
+                                    'bg-yellow-100 text-yellow-700': item.status === 'registered',
+                                    'bg-blue-100 text-blue-700': item.status === 'sealed',
+                                    'bg-green-100 text-green-700': item.status === 'claimed',
+                                    'bg-gray-100 text-gray-600': item.status === 'disposed'
+                                }"
+                                x-text="item.status_text"></span>
+                        </td>
+                        <td class="px-6 py-4 space-x-2 whitespace-nowrap">
+                            <button x-show="item.status === 'registered'" @click="openSealModal(item)"
+                                class="text-blue-600 hover:text-blue-700 text-xs">封存</button>
+                            <button x-show="['registered','sealed'].includes(item.status)" @click="openClaimModal(item)"
+                                class="text-green-600 hover:text-green-700 text-xs">认领登记</button>
+                            <button x-show="['registered','sealed'].includes(item.status)" @click="handleDispose(item)"
+                                class="text-gray-600 hover:text-gray-700 text-xs">标记处理</button>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <div x-show="showRegisterModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 mx-4">
+            <h3 class="text-lg font-semibold mb-4">登记遗留物</h3>
+            <form @submit.prevent="handleRegister" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">物品名称 *</label>
+                        <input type="text" x-model="registerForm.item_name" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="如：黑色钱包">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">分类</label>
+                        <select x-model="registerForm.item_category"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">请选择</option>
+                            <option value="衣物">衣物</option>
+                            <option value="包袋">包袋</option>
+                            <option value="电子产品">电子产品</option>
+                            <option value="证件">证件</option>
+                            <option value="饰品">饰品</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">物品描述 *</label>
+                    <textarea x-model="registerForm.item_description" required rows="2"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="描述物品特征"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">发现试衣间 *</label>
+                    <select x-model="registerForm.fitting_room_id" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">请选择</option>
+                        <template x-for="r in rooms" :key="r.id">
+                            <option :value="r.id" x-text="r.room_number + ' (' + r.status_text + ')'"></option>
+                        </template>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">* 封存后原试衣间必须完成清场才能恢复使用</p>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" @click="showRegisterModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                        取消
+                    </button>
+                    <button type="submit" :disabled="submitting"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition">
+                        <span x-text="submitting ? '登记中...' : '登记'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div x-show="showSealModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 mx-4">
+            <h3 class="text-lg font-semibold mb-4">物品封存</h3>
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
+                <p>物品：<span class="font-medium" x-text="currentItem?.item_name"></span></p>
+                <p>试衣间：<span class="font-medium" x-text="currentItem?.room_number"></span></p>
+            </div>
+            <form @submit.prevent="handleSeal" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">封存位置 *</label>
+                    <input type="text" x-model="sealForm.seal_location" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="如：服务台储物柜A-01">
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" @click="showSealModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                        取消
+                    </button>
+                    <button type="submit" :disabled="submitting"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition">
+                        <span x-text="submitting ? '封存中...' : '确认封存'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div x-show="showClaimModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 mx-4">
+            <h3 class="text-lg font-semibold mb-4">失物认领登记</h3>
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
+                <p>物品：<span class="font-medium" x-text="currentItem?.item_name"></span> - <span x-text="currentItem?.item_description"></span></p>
+                <p class="text-xs text-gray-500 mt-1">* 认领成功后不能重复发起二次认领</p>
+            </div>
+            <form @submit.prevent="handleClaim" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">认领人姓名 *</label>
+                        <input type="text" x-model="claimForm.claimant_name" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="真实姓名">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">联系电话 *</label>
+                        <input type="tel" x-model="claimForm.claimant_phone" required pattern="[0-9]{11}"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="11位手机号">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">证件号码 *</label>
+                    <input type="text" x-model="claimForm.claimant_id_number" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="身份证号等有效证件号码">
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" @click="showClaimModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                        取消
+                    </button>
+                    <button type="submit" :disabled="submitting"
+                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 transition">
+                        <span x-text="submitting ? '提交中...' : '确认认领'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+function lostItemsApp() {
+    return {
+        items: [],
+        rooms: [],
+        statusOptions: [],
+        filter: { status: '' },
+        currentItem: null,
+        submitting: false,
+        showRegisterModal: false,
+        showSealModal: false,
+        showClaimModal: false,
+        registerForm: { item_name: '', item_description: '', item_category: '', fitting_room_id: '' },
+        sealForm: { seal_location: '' },
+        claimForm: { claimant_name: '', claimant_phone: '', claimant_id_number: '' },
+
+        async loadAll() {
+            await Promise.all([this.loadItems(), this.loadRooms(), this.loadOptions()]);
+        },
+
+        async loadItems() {
+            let url = '/api/lost-items';
+            if (this.filter.status) url += '?status=' + this.filter.status;
+            const res = await API.get(url);
+            if (res?.code === 0) this.items = res.data;
+        },
+
+        async loadRooms() {
+            const res = await API.get('/api/fitting-rooms');
+            if (res?.code === 0) this.rooms = res.data;
+        },
+
+        async loadOptions() {
+            const res = await API.get('/api/lost-items/status');
+            if (res?.code === 0) this.statusOptions = res.data;
+        },
+
+        openRegisterModal() {
+            this.registerForm = { item_name: '', item_description: '', item_category: '', fitting_room_id: '' };
+            this.showRegisterModal = true;
+        },
+
+        async handleRegister() {
+            this.submitting = true;
+            try {
+                const res = await API.post('/api/lost-items', this.registerForm);
+                if (res?.code === 0) {
+                    toast('登记成功', 'success');
+                    this.showRegisterModal = false;
+                    this.loadItems();
+                } else {
+                    toast(res?.message || '登记失败', 'error');
+                }
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        openSealModal(item) {
+            this.currentItem = item;
+            this.sealForm = { seal_location: '' };
+            this.showSealModal = true;
+        },
+
+        async handleSeal() {
+            this.submitting = true;
+            try {
+                const res = await API.post('/api/lost-items/' + this.currentItem.id + '/seal', this.sealForm);
+                if (res?.code === 0) {
+                    toast('封存成功', 'success');
+                    this.showSealModal = false;
+                    this.loadItems();
+                } else {
+                    toast(res?.message || '封存失败', 'error');
+                }
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        openClaimModal(item) {
+            this.currentItem = item;
+            this.claimForm = { claimant_name: '', claimant_phone: '', claimant_id_number: '' };
+            this.showClaimModal = true;
+        },
+
+        async handleClaim() {
+            this.submitting = true;
+            try {
+                const res = await API.post('/api/lost-items/' + this.currentItem.id + '/claim', this.claimForm);
+                if (res?.code === 0) {
+                    toast('认领登记成功', 'success');
+                    this.showClaimModal = false;
+                    this.loadItems();
+                    this.loadRooms();
+                } else {
+                    toast(res?.message || '认领失败', 'error');
+                }
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        async handleDispose(item) {
+            if (!confirm('确定将此物品标记为已处理（无主物品）吗？关联的试衣间会恢复可清理状态。')) return;
+            const res = await API.post('/api/lost-items/' + item.id + '/dispose', {});
+            if (res?.code === 0) {
+                toast('已标记为处理完成', 'success');
+                this.loadItems();
+                this.loadRooms();
+            } else {
+                toast(res?.message || '操作失败', 'error');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+<body x-data="layoutApp()" x-init="checkAuth(); loadUser();" class="bg-gray-50">
+<div class="min-h-screen flex">
+    <aside class="w-64 bg-white shadow-lg flex flex-col fixed h-full z-30">
+        <div class="h-16 flex items-center justify-center border-b">
+            <h1 class="text-lg font-bold text-blue-600">试衣间管理系统</h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+            <template x-for="item in menuItems" :key="item.path">
+                <a :href="item.path"
+                   :class="['flex items-center px-4 py-3 rounded-lg transition',
+                            currentPath === item.path ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50']">
+                    <span x-html="item.icon" class="w-5 h-5 mr-3"></span>
+                    <span x-text="item.name"></span>
+                </a>
+            </template>
+        </nav>
+        <div class="p-4 border-t">
+            <div class="flex items-center space-x-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium"
+                     x-text="user?.real_name?.charAt(0) || 'U'"></div>
+                <div>
+                    <p class="text-sm font-medium text-gray-800" x-text="user?.real_name || '-'"></p>
+                    <p class="text-xs text-gray-500" x-text="user?.role || '-'"></p>
+                </div>
+            </div>
+            <button @click="logout" class="w-full py-2 px-4 text-sm text-red-600 hover:bg-red-50 rounded-lg transition">
+                退出登录
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 ml-64">
+        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 sticky top-0 z-20">
+            <h2 class="text-xl font-semibold text-gray-800">{% block page_title %}{% endblock %}</h2>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-500" x-text="currentTime"></span>
+            </div>
+        </header>
+        <div class="p-8">
+            {% block page_content %}{% endblock %}
+        </div>
+    </main>
+</div>
+</body>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function layoutApp() {
+    return {
+        user: null,
+        currentPath: window.location.pathname,
+        currentTime: '',
+        menuItems: [
+            { name: '工作台', path: '/', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
+            { name: '排队叫号', path: '/queue', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' },
+            { name: '门店管理', path: '/stores', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>' },
+            { name: '试衣间管理', path: '/fitting-rooms', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>' },
+            { name: '遗留物管理', path: '/lost-items', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>' },
+            { name: '统计分析', path: '/stats', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>' }
+        ],
+        loadUser() {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                this.user = JSON.parse(userStr);
+            }
+        },
+        updateTime() {
+            this.currentTime = new Date().toLocaleString('zh-CN', { hour12: false });
+        },
+        logout() {
+            if (confirm('确定要退出登录吗？')) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            }
+        },
+        init() {
+            this.updateTime();
+            setInterval(() => this.updateTime(), 1000);
+        }
+    }
+}
+</script>
+{% block page_scripts %}{% endblock %}
+{% endblock %}

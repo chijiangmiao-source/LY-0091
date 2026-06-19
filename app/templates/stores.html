@@ -1,0 +1,205 @@
+{% extends "layout.html" %}
+{% block page_title %}门店管理{% endblock %}
+{% block page_content %}
+<div x-data="storesApp()" x-init="loadAll()" class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div class="flex items-center space-x-4">
+            <select x-model="filter.floor" @change="loadStores()"
+                class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">全部楼层</option>
+                <template x-for="f in floors" :key="f">
+                    <option :value="f" x-text="f + 'F'"></option>
+                </template>
+            </select>
+        </div>
+        <button @click="openCreateModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            新增门店
+        </button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">ID</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">楼层</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">门店名称</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">位置</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">联系电话</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">负责人</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">试衣间数</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">状态</th>
+                    <th class="px-6 py-4 text-left font-medium text-gray-600">操作</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <template x-if="stores.length === 0">
+                    <tr><td colspan="9" class="px-6 py-12 text-center text-gray-400">暂无门店数据，请先添加门店</td></tr>
+                </template>
+                <template x-for="s in stores" :key="s.id">
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-gray-500" x-text="s.id"></td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium" x-text="s.floor + 'F'"></span>
+                        </td>
+                        <td class="px-6 py-4 font-medium text-gray-800" x-text="s.name"></td>
+                        <td class="px-6 py-4 text-gray-600" x-text="s.location || '-'"></td>
+                        <td class="px-6 py-4 text-gray-600" x-text="s.phone || '-'"></td>
+                        <td class="px-6 py-4 text-gray-600" x-text="s.manager || '-'"></td>
+                        <td class="px-6 py-4">
+                            <span class="font-medium" x-text="s.fitting_rooms_count || 0"></span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 rounded text-xs font-medium"
+                                :class="s.status ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+                                x-text="s.status ? '营业中' : '已停业'"></span>
+                        </td>
+                        <td class="px-6 py-4 space-x-2">
+                            <button @click="openEditModal(s)" class="text-blue-600 hover:text-blue-700 text-xs">编辑</button>
+                            <button @click="handleDelete(s)" class="text-red-600 hover:text-red-700 text-xs">删除</button>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 mx-4">
+            <h3 class="text-lg font-semibold mb-4" x-text="isEditing ? '编辑门店' : '新增门店'"></h3>
+            <form @submit.prevent="handleSubmit" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">楼层 *</label>
+                        <select x-model="form.floor" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">请选择</option>
+                            <template x-for="f in [1,2,3,4,5,6,7,8]" :key="f">
+                                <option :value="f" x-text="f + 'F'"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">门店名称 *</label>
+                        <input type="text" x-model="form.name" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="请输入门店名称">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">位置</label>
+                    <input type="text" x-model="form.location"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="如：东区1号铺">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">联系电话</label>
+                        <input type="tel" x-model="form.phone"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="选填">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">负责人</label>
+                        <input type="text" x-model="form.manager"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="选填">
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" x-model="form.status" id="store-status" class="w-4 h-4 text-blue-600 rounded">
+                    <label for="store-status" class="ml-2 text-sm text-gray-700">门店营业中</label>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" @click="showModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                        取消
+                    </button>
+                    <button type="submit" :disabled="submitting"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition">
+                        <span x-text="submitting ? '保存中...' : '保存'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+function storesApp() {
+    return {
+        stores: [],
+        floors: [],
+        filter: { floor: '' },
+        showModal: false,
+        isEditing: false,
+        submitting: false,
+        form: { id: null, name: '', floor: '', location: '', phone: '', manager: '', status: true },
+
+        async loadAll() {
+            await Promise.all([this.loadStores(), this.loadFloors()]);
+        },
+
+        async loadStores() {
+            let url = '/api/stores';
+            if (this.filter.floor) url += '?floor=' + this.filter.floor;
+            const res = await API.get(url);
+            if (res?.code === 0) this.stores = res.data;
+        },
+
+        async loadFloors() {
+            const res = await API.get('/api/floors');
+            if (res?.code === 0) this.floors = res.data;
+        },
+
+        openCreateModal() {
+            this.isEditing = false;
+            this.form = { id: null, name: '', floor: '', location: '', phone: '', manager: '', status: true };
+            this.showModal = true;
+        },
+
+        openEditModal(store) {
+            this.isEditing = true;
+            this.form = { ...store };
+            this.showModal = true;
+        },
+
+        async handleSubmit() {
+            this.submitting = true;
+            try {
+                let res;
+                if (this.isEditing) {
+                    res = await API.put('/api/stores/' + this.form.id, this.form);
+                } else {
+                    res = await API.post('/api/stores', this.form);
+                }
+                if (res?.code === 0) {
+                    toast(this.isEditing ? '更新成功' : '创建成功', 'success');
+                    this.showModal = false;
+                    this.loadAll();
+                } else {
+                    toast(res?.message || '操作失败', 'error');
+                }
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        async handleDelete(store) {
+            if (!confirm('确定删除门店 "' + store.name + '" 吗？删除前请确保没有关联的试衣间。')) return;
+            const res = await API.del('/api/stores/' + store.id);
+            if (res?.code === 0) {
+                toast('删除成功', 'success');
+                this.loadAll();
+            } else {
+                toast(res?.message || '删除失败', 'error');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

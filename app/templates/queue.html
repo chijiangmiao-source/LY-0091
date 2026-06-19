@@ -1,0 +1,418 @@
+{% extends "layout.html" %}
+{% block page_title %}排队叫号{% endblock %}
+{% block page_content %}
+<div x-data="queueApp()" x-init="loadAll(); setInterval(loadAll, 10000);" class="space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">现场取号</h3>
+                </div>
+                <form @submit.prevent="handleTakeTicket" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">选择门店</label>
+                        <select x-model="newTicket.store_id" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">请选择门店</option>
+                            <template x-for="s in stores" :key="s.id">
+                                <option :value="s.id" x-text="s.floor + 'F - ' + s.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">顾客姓名</label>
+                        <input type="text" x-model="newTicket.customer_name"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="选填">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">手机号 *</label>
+                        <input type="tel" x-model="newTicket.phone" required pattern="[0-9]{11}"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="请输入11位手机号">
+                    </div>
+                    <button type="submit" :disabled="submitting"
+                        class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50 transition">
+                        <span x-text="submitting ? '提交中...' : '取号'"></span>
+                    </button>
+                </form>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">筛选</h3>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">按门店筛选</label>
+                        <select x-model="filter.store_id" @change="loadAll()"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">全部门店</option>
+                            <template x-for="s in stores" :key="s.id">
+                                <option :value="s.id" x-text="s.floor + 'F - ' + s.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">
+                        排队中 <span class="text-sm font-normal text-gray-500">(<span x-text="waitingList.length"></span>人)</span>
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">号码</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">姓名</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">手机号</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">门店</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">取号时间</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">等候</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-if="waitingList.length === 0">
+                                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无排队</td></tr>
+                            </template>
+                            <template x-for="(item, index) in waitingList" :key="item.id">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                            :class="index < 3 ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'">
+                                            <span x-text="index < 3 ? '前' + (index+1) : ''"></span>
+                                            <span x-text="item.ticket_number"></span>
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3" x-text="item.customer_name || '-'"></td>
+                                    <td class="px-4 py-3" x-text="item.phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')"></td>
+                                    <td class="px-4 py-3" x-text="item.store_name || '-'"></td>
+                                    <td class="px-4 py-3" x-text="formatTime(item.queue_time)"></td>
+                                    <td class="px-4 py-3" x-text="calcWaitTime(item.queue_time)"></td>
+                                    <td class="px-4 py-3 space-x-2">
+                                        <button @click="handleCall(item)"
+                                            class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition">
+                                            叫号
+                                        </button>
+                                        <button @click="handleMarkOvertime(item)"
+                                            class="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-xs rounded transition">
+                                            过号
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">
+                        已叫号 <span class="text-sm font-normal text-gray-500">(<span x-text="calledList.length"></span>人)</span>
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">号码</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">姓名</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">手机号</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">叫号时间</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-if="calledList.length === 0">
+                                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">暂无已叫号</td></tr>
+                            </template>
+                            <template x-for="item in calledList" :key="item.id">
+                                <tr class="hover:bg-gray-50 bg-yellow-50">
+                                    <td class="px-4 py-3 font-medium text-yellow-800" x-text="item.ticket_number"></td>
+                                    <td class="px-4 py-3" x-text="item.customer_name || '-'"></td>
+                                    <td class="px-4 py-3" x-text="item.phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')"></td>
+                                    <td class="px-4 py-3" x-text="formatTime(item.call_time)"></td>
+                                    <td class="px-4 py-3 space-x-2">
+                                        <button @click="openEnterModal(item)"
+                                            class="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition">
+                                            入场登记
+                                        </button>
+                                        <button @click="handleMarkOvertime(item)"
+                                            class="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-xs rounded transition">
+                                            过号
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">使用中</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">号码</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">试衣间</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">入场时间</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">时长</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-if="enteredList.length === 0">
+                                <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">暂无使用中</td></tr>
+                            </template>
+                            <template x-for="item in enteredList" :key="item.id">
+                                <tr class="hover:bg-gray-50 bg-green-50">
+                                    <td class="px-4 py-3 font-medium text-green-800" x-text="item.ticket_number"></td>
+                                    <td class="px-4 py-3 font-medium" x-text="item.room_number"></td>
+                                    <td class="px-4 py-3" x-text="formatTime(item.enter_time)"></td>
+                                    <td class="px-4 py-3" x-text="calcEnterTime(item.enter_time)"></td>
+                                    <td class="px-4 py-3 space-x-2">
+                                        <button @click="openLeaveModal(item)"
+                                            class="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-xs rounded transition">
+                                            离场登记
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showEnterModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 mx-4">
+            <h3 class="text-lg font-semibold mb-4">入场登记</h3>
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
+                <p>号码：<span class="font-medium" x-text="currentRecord?.ticket_number"></span></p>
+                <p>手机：<span class="font-medium" x-text="currentRecord?.phone"></span></p>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">选择试衣间 *</label>
+                <select x-model="enterForm.fitting_room_id" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">请选择可用试衣间</option>
+                    <template x-for="r in availableRooms" :key="r.id">
+                        <option :value="r.id" x-text="r.room_number + ' - ' + r.room_type_text + (r.store_name ? ' (' + r.store_name + ')' : '')"></option>
+                    </template>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">* 离场前不能登记下一位顾客入场</p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button @click="showEnterModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                    取消
+                </button>
+                <button @click="handleEnter" :disabled="submitting"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition">
+                    确认入场
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showLeaveModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 mx-4">
+            <h3 class="text-lg font-semibold mb-4">离场登记</h3>
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
+                <p>号码：<span class="font-medium" x-text="currentRecord?.ticket_number"></span></p>
+                <p>试衣间：<span class="font-medium" x-text="currentRecord?.room_number"></span></p>
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" x-model="leaveForm.has_lost_item" class="w-4 h-4 text-red-600 rounded">
+                    <span class="text-sm font-medium text-red-600">发现遗留物品（勾选后试衣间将被封存）</span>
+                </label>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">备注</label>
+                <textarea x-model="leaveForm.remark" rows="2"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="选填"></textarea>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button @click="showLeaveModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                    取消
+                </button>
+                <button @click="handleLeave" :disabled="submitting"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg disabled:opacity-50 transition">
+                    确认离场
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+function queueApp() {
+    return {
+        stores: [],
+        waitingList: [],
+        calledList: [],
+        enteredList: [],
+        availableRooms: [],
+        allRecords: [],
+        filter: { store_id: '' },
+        newTicket: { store_id: '', customer_name: '', phone: '' },
+        submitting: false,
+        showEnterModal: false,
+        showLeaveModal: false,
+        currentRecord: null,
+        enterForm: { fitting_room_id: '' },
+        leaveForm: { has_lost_item: false, remark: '' },
+
+        async loadAll() {
+            await Promise.all([this.loadStores(), this.loadRecords(), this.loadRooms()]);
+        },
+
+        async loadStores() {
+            const res = await API.get('/api/stores?status=true');
+            if (res?.code === 0) this.stores = res.data;
+        },
+
+        async loadRecords() {
+            let url = '/api/queue?status=waiting,called,entered';
+            if (this.filter.store_id) url += '&store_id=' + this.filter.store_id;
+            const res = await API.get(url);
+            if (res?.code === 0) {
+                this.allRecords = res.data;
+                this.waitingList = res.data.filter(r => r.status === 'waiting');
+                this.calledList = res.data.filter(r => r.status === 'called');
+                this.enteredList = res.data.filter(r => r.status === 'entered');
+            }
+        },
+
+        async loadRooms() {
+            const res = await API.get('/api/fitting-rooms?status=available');
+            if (res?.code === 0) this.availableRooms = res.data;
+        },
+
+        calcWaitTime(start) {
+            if (!start) return '-';
+            const diff = Math.floor((Date.now() - new Date(start).getTime()) / 60000);
+            if (diff < 1) return '刚取号';
+            return diff + '分钟';
+        },
+
+        calcEnterTime(start) {
+            if (!start) return '-';
+            const diff = Math.floor((Date.now() - new Date(start).getTime()) / 60000);
+            const h = Math.floor(diff / 60);
+            const m = diff % 60;
+            if (h > 0) return h + '小时' + m + '分';
+            return m + '分钟';
+        },
+
+        async handleTakeTicket() {
+            this.submitting = true;
+            try {
+                const res = await API.post('/api/queue', this.newTicket);
+                if (res?.code === 0) {
+                    toast('取号成功！号码：' + res.data.ticket_number, 'success');
+                    this.newTicket = { store_id: '', customer_name: '', phone: '' };
+                    this.loadRecords();
+                } else {
+                    toast(res?.message || '取号失败', 'error');
+                }
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        async handleCall(item) {
+            if (!confirm('确定要叫号 ' + item.ticket_number + ' 吗？')) return;
+            const res = await API.post('/api/queue/' + item.id + '/call');
+            if (res?.code === 0) {
+                toast('叫号成功', 'success');
+                this.loadRecords();
+            } else {
+                toast(res?.message || '叫号失败', 'error');
+            }
+        },
+
+        async handleMarkOvertime(item) {
+            if (!confirm('确定标记 ' + item.ticket_number + ' 为过号吗？过号后只能重新排在队尾。')) return;
+            const res = await API.post('/api/queue/' + item.id + '/overtime');
+            if (res?.code === 0) {
+                toast('已标记为过号', 'warning');
+                this.loadRecords();
+            } else {
+                toast(res?.message || '操作失败', 'error');
+            }
+        },
+
+        openEnterModal(item) {
+            this.currentRecord = item;
+            this.enterForm = { fitting_room_id: '' };
+            this.showEnterModal = true;
+        },
+
+        async handleEnter() {
+            if (!this.enterForm.fitting_room_id) {
+                toast('请选择试衣间', 'warning');
+                return;
+            }
+            this.submitting = true;
+            try {
+                const res = await API.post('/api/queue/' + this.currentRecord.id + '/enter', this.enterForm);
+                if (res?.code === 0) {
+                    toast(res.message || '入场成功', 'success');
+                    this.showEnterModal = false;
+                    this.loadRecords();
+                    this.loadRooms();
+                } else {
+                    toast(res?.message || '入场失败', 'error');
+                }
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        openLeaveModal(item) {
+            this.currentRecord = item;
+            this.leaveForm = { has_lost_item: false, remark: '' };
+            this.showLeaveModal = true;
+        },
+
+        async handleLeave() {
+            this.submitting = true;
+            try {
+                const res = await API.post('/api/queue/' + this.currentRecord.id + '/leave', this.leaveForm);
+                if (res?.code === 0) {
+                    toast(res.message || '离场成功', 'success');
+                    this.showLeaveModal = false;
+                    this.loadRecords();
+                    this.loadRooms();
+                    if (this.leaveForm.has_lost_item) {
+                        if (confirm('是否立即登记遗留物品？')) {
+                            window.location.href = '/lost-items';
+                        }
+                    }
+                } else {
+                    toast(res?.message || '离场失败', 'error');
+                }
+            } finally {
+                this.submitting = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}
