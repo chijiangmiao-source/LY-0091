@@ -142,8 +142,8 @@ class LostItemClaimResource:
         if item.status == "claimed":
             raise falcon.HTTPBadRequest(title="操作失败", description="该物品已被认领，不能重复认领")
 
-        if item.status not in ["sealed", "registered"]:
-            raise falcon.HTTPBadRequest(title="操作失败", description="当前状态不支持认领")
+        if item.status != "sealed":
+            raise falcon.HTTPBadRequest(title="操作失败", description="物品未正式封存，不能认领")
 
         try:
             data = await req.get_media()

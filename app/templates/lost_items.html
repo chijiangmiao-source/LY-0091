@@ -59,7 +59,7 @@
                         <td class="px-6 py-4 space-x-2 whitespace-nowrap">
                             <button x-show="item.status === 'registered'" @click="openSealModal(item)"
                                 class="text-blue-600 hover:text-blue-700 text-xs">封存</button>
-                            <button x-show="['registered','sealed'].includes(item.status)" @click="openClaimModal(item)"
+                            <button x-show="item.status === 'sealed'" @click="openClaimModal(item)"
                                 class="text-green-600 hover:text-green-700 text-xs">认领登记</button>
                             <button x-show="['registered','sealed'].includes(item.status)" @click="handleDispose(item)"
                                 class="text-gray-600 hover:text-gray-700 text-xs">标记处理</button>

@@ -21,7 +21,7 @@ class QueueRecord(ormar.Model):
         tablename = "queue_records"
 
     id: int = ormar.Integer(primary_key=True)
-    ticket_number: str = ormar.String(max_length=20)
+    ticket_number: str = ormar.String(max_length=20, unique=True)
     store: Optional[Store] = ormar.ForeignKey(Store, related_name="queue_records", nullable=True)
     fitting_room: Optional[FittingRoom] = ormar.ForeignKey(FittingRoom, related_name="queue_records", nullable=True)
     customer_name: str = ormar.String(max_length=50, nullable=True)

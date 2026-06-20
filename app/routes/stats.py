@@ -28,8 +28,8 @@ class StatsOverviewResource:
         total_wait_seconds = 0
         valid_count = 0
         for r in wait_time_records:
-            if r.call_time and r.queue_time:
-                delta = (r.call_time - r.queue_time).total_seconds()
+            if r.enter_time and r.queue_time:
+                delta = (r.enter_time - r.queue_time).total_seconds()
                 if delta > 0:
                     total_wait_seconds += delta
                     valid_count += 1
@@ -131,8 +131,8 @@ class StatsStoreResource:
 
             wait_times = []
             for r in records:
-                if r.call_time and r.queue_time:
-                    delta = (r.call_time - r.queue_time).total_seconds()
+                if r.enter_time and r.queue_time:
+                    delta = (r.enter_time - r.queue_time).total_seconds()
                     if delta > 0:
                         wait_times.append(delta)
 
@@ -195,8 +195,8 @@ class StatsDailyResource:
                 daily_data[day_key]["entered"] += 1
             if r.is_overtime:
                 daily_data[day_key]["overtime"] += 1
-            if r.call_time and r.queue_time:
-                delta = (r.call_time - r.queue_time).total_seconds()
+            if r.enter_time and r.queue_time:
+                delta = (r.enter_time - r.queue_time).total_seconds()
                 if delta > 0:
                     daily_data[day_key]["wait_times"].append(delta)
 

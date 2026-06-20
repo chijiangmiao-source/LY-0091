@@ -5,12 +5,35 @@ from app.config import OVER_TIME_MINUTES
 from app.models import QueueRecord, FittingRoom, Store, QUEUE_STATUS, ROOM_STATUS
 
 
-def generate_ticket_number(store_id=None):
+async def generate_ticket_number(store_id=None):
     now = datetime.now()
-    prefix = now.strftime("%Y%m%d")
-    import random
-    suffix = ''.join([str(random.randint(0, 9)) for _ in range(4)])
-    return f"A{prefix}{suffix}"
+    date_prefix = now.strftime("%Y%m%d")
+    prefix = f"A{date_prefix}"
+
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+
+    today_count = await QueueRecord.objects.filter(
+        queue_time__gte=today_start,
+        queue_time__lt=today_end
+    ).count()
+
+    sequence = today_count + 1
+    suffix = f"{sequence:04d}"
+    ticket_number = f"{prefix}{suffix}"
+
+    exists = await QueueRecord.objects.filter(ticket_number=ticket_number).exists()
+    if exists:
+        max_record = await QueueRecord.objects.filter(
+            ticket_number__startswith=prefix
+        ).order_by("-ticket_number").first()
+        if max_record:
+            last_seq = int(max_record.ticket_number[-4:])
+            sequence = last_seq + 1
+            suffix = f"{sequence:04d}"
+            ticket_number = f"{prefix}{suffix}"
+
+    return ticket_number
 
 
 class QueueListResource:
@@ -66,7 +89,7 @@ class QueueListResource:
             except Exception:
                 raise falcon.HTTPBadRequest(title="参数错误", description="门店不存在")
 
-        ticket_number = data.get("ticket_number") or generate_ticket_number(data.get("store_id"))
+        ticket_number = data.get("ticket_number") or await generate_ticket_number(data.get("store_id"))
 
         record = QueueRecord(
             ticket_number=ticket_number,
@@ -261,7 +284,7 @@ class QueueRequeueResource:
         old_ticket = record.ticket_number
         record.status = "waiting"
         record.is_overtime = False
-        record.ticket_number = generate_ticket_number(record.store.id if record.store else None)
+        record.ticket_number = await generate_ticket_number(record.store.id if record.store else None)
         record.queue_time = datetime.now()
         record.call_time = None
         record.enter_time = None
