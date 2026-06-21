@@ -102,6 +102,12 @@ BEHAVIOR_TYPES = {
     "graylist_add": "加入灰名单",
     "graylist_remove": "移出灰名单",
     "intercept": "黑名单拦截",
+    "transfer_out": "跨店转出",
+    "transfer_in": "跨店转入",
+    "transfer_customer_confirm": "转单顾客确认",
+    "transfer_customer_reject": "转单顾客拒绝",
+    "transfer_completed": "转单完成",
+    "transfer_failed": "转单失败",
 }
 
 

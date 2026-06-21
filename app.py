@@ -23,6 +23,9 @@ from app.routes import (
     StatsOverviewResource, StatsHourlyResource,
     StatsStoreResource, StatsDailyResource,
     StatsAppointmentResource, StatsAppointmentPeakResource,
+    StatsTransferOverviewResource, StatsTransferDailyResource,
+    StatsTransferPeakHourResource, StatsTransferStoreLoadResource,
+    StatsTransferHeatmapResource,
     AppointmentListResource, AppointmentDetailResource,
     AppointmentConfirmResource, AppointmentSlotsResource,
     AppointmentDateRangeResource, AppointmentStatusResource,
@@ -38,6 +41,11 @@ from app.routes import (
     MemberStatsResource, MemberTagDefinitionsResource,
     BlacklistStatusOptionsResource, BehaviorTypeOptionsResource,
     BlacklistReasonOptionsResource,
+    TransferRecommendResource, TransferListResource, TransferDetailResource,
+    TransferCustomerConfirmResource, TransferTargetAcceptResource,
+    TransferCancelResource, TransferStatusOptionsResource,
+    TransferReasonOptionsResource, TransferSourceTypeOptionsResource,
+    StoreLoadStatusResource,
 )
 
 
@@ -138,6 +146,11 @@ def create_app():
     app.add_route("/api/stats/daily", StatsDailyResource())
     app.add_route("/api/stats/appointment", StatsAppointmentResource())
     app.add_route("/api/stats/appointment-peak", StatsAppointmentPeakResource())
+    app.add_route("/api/stats/transfer/overview", StatsTransferOverviewResource())
+    app.add_route("/api/stats/transfer/daily", StatsTransferDailyResource())
+    app.add_route("/api/stats/transfer/peak-hour", StatsTransferPeakHourResource())
+    app.add_route("/api/stats/transfer/store-load", StatsTransferStoreLoadResource())
+    app.add_route("/api/stats/transfer/heatmap", StatsTransferHeatmapResource())
 
     app.add_route("/api/appointments", AppointmentListResource())
     app.add_route("/api/appointments/slots", AppointmentSlotsResource())
@@ -161,6 +174,18 @@ def create_app():
     app.add_route("/api/members/behavior-type-options", BehaviorTypeOptionsResource())
     app.add_route("/api/members/blacklist-reason-options", BlacklistReasonOptionsResource())
     app.add_route("/api/members/{member_id:int}", MemberDetailResource())
+
+    app.add_route("/api/transfers/recommend", TransferRecommendResource())
+    app.add_route("/api/transfers", TransferListResource())
+    app.add_route("/api/transfers/status-options", TransferStatusOptionsResource())
+    app.add_route("/api/transfers/reason-options", TransferReasonOptionsResource())
+    app.add_route("/api/transfers/source-type-options", TransferSourceTypeOptionsResource())
+    app.add_route("/api/transfers/{transfer_id:int}", TransferDetailResource())
+    app.add_route("/api/transfers/{transfer_id:int}/customer-confirm", TransferCustomerConfirmResource())
+    app.add_route("/api/transfers/{transfer_id:int}/target-accept", TransferTargetAcceptResource())
+    app.add_route("/api/transfers/{transfer_id:int}/cancel", TransferCancelResource())
+
+    app.add_route("/api/store-load", StoreLoadStatusResource())
 
     app.add_route("/static/{filename}", StaticResource())
 

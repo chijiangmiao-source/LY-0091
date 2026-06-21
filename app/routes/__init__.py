@@ -19,7 +19,10 @@ from app.routes.lost_item import (
 from app.routes.stats import (
     StatsOverviewResource, StatsHourlyResource,
     StatsStoreResource, StatsDailyResource,
-    StatsAppointmentResource, StatsAppointmentPeakResource
+    StatsAppointmentResource, StatsAppointmentPeakResource,
+    StatsTransferOverviewResource, StatsTransferDailyResource,
+    StatsTransferPeakHourResource, StatsTransferStoreLoadResource,
+    StatsTransferHeatmapResource
 )
 from app.routes.appointment import (
     AppointmentListResource, AppointmentDetailResource,
@@ -42,6 +45,13 @@ from app.routes.member import (
     BlacklistStatusOptionsResource, BehaviorTypeOptionsResource,
     BlacklistReasonOptionsResource
 )
+from app.routes.store_transfer import (
+    TransferRecommendResource, TransferListResource, TransferDetailResource,
+    TransferCustomerConfirmResource, TransferTargetAcceptResource,
+    TransferCancelResource, TransferStatusOptionsResource,
+    TransferReasonOptionsResource, TransferSourceTypeOptionsResource,
+    StoreLoadStatusResource
+)
 
 __all__ = [
     "LoginResource", "UserInfoResource",
@@ -59,6 +69,9 @@ __all__ = [
     "StatsOverviewResource", "StatsHourlyResource",
     "StatsStoreResource", "StatsDailyResource",
     "StatsAppointmentResource", "StatsAppointmentPeakResource",
+    "StatsTransferOverviewResource", "StatsTransferDailyResource",
+    "StatsTransferPeakHourResource", "StatsTransferStoreLoadResource",
+    "StatsTransferHeatmapResource",
     "AppointmentListResource", "AppointmentDetailResource",
     "AppointmentConfirmResource", "AppointmentSlotsResource",
     "AppointmentDateRangeResource", "AppointmentStatusResource",
@@ -74,4 +87,9 @@ __all__ = [
     "MemberStatsResource", "MemberTagDefinitionsResource",
     "BlacklistStatusOptionsResource", "BehaviorTypeOptionsResource",
     "BlacklistReasonOptionsResource",
+    "TransferRecommendResource", "TransferListResource", "TransferDetailResource",
+    "TransferCustomerConfirmResource", "TransferTargetAcceptResource",
+    "TransferCancelResource", "TransferStatusOptionsResource",
+    "TransferReasonOptionsResource", "TransferSourceTypeOptionsResource",
+    "StoreLoadStatusResource",
 ]
