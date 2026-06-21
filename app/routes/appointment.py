@@ -8,6 +8,7 @@ from app.models import (
     get_no_show_count_with_penalty, get_no_show_penalty, NO_SHOW_PENALTY_LEVELS
 )
 from app.routes.queue import generate_ticket_number
+from app.routes.member import check_blacklist, record_behavior, get_or_create_member
 
 
 async def generate_appointment_no():
@@ -155,6 +156,20 @@ class AppointmentListResource:
         if not phone:
             raise falcon.HTTPBadRequest(title="参数错误", description="手机号不能为空")
 
+        blacklist_result = await check_blacklist(phone, "appointment")
+        if blacklist_result["is_blocked"]:
+            raise falcon.HTTPBadRequest(
+                title="预约失败",
+                description=f"该手机号已被加入黑名单，无法预约。原因：{blacklist_result['reason']}"
+            )
+        if blacklist_result["is_gray"]:
+            need_verify = data.get("verify_code")
+            if not need_verify:
+                raise falcon.HTTPBadRequest(
+                    title="需要二次校验",
+                    description=f"该手机号处于灰名单，需要工作人员确认后方可预约。原因：{blacklist_result['reason']}"
+                )
+
         appointment_date = (data.get("appointment_date") or "").strip()
         if not appointment_date:
             raise falcon.HTTPBadRequest(title="参数错误", description="预约日期不能为空")
@@ -243,6 +258,15 @@ class AppointmentListResource:
             status="pending"
         )
         await appointment.save()
+
+        await get_or_create_member(phone, data.get("customer_name"))
+        await record_behavior(
+            phone=phone,
+            behavior_type="appointment",
+            related_id=appointment.id,
+            store_name=store.name if store else None,
+            detail=f"预约号：{appointment_no}，日期：{appointment_date}，时段：{time_slot}"
+        )
 
         result = appointment.dict()
         if store:

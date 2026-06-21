@@ -31,6 +31,13 @@ from app.routes import (
     LoginPageResource, DashboardPageResource,
     StoresPageResource, FittingRoomsPageResource,
     QueuePageResource, LostItemsPageResource, StatsPageResource,
+    MemberPageResource,
+    MemberListResource, MemberDetailResource, MemberPhoneResource,
+    MemberRefreshResource, MemberBehaviorResource,
+    BlacklistManageResource, BlacklistCheckResource,
+    MemberStatsResource, MemberTagDefinitionsResource,
+    BlacklistStatusOptionsResource, BehaviorTypeOptionsResource,
+    BlacklistReasonOptionsResource,
 )
 
 
@@ -90,6 +97,7 @@ def create_app():
     app.add_route("/queue", QueuePageResource())
     app.add_route("/lost-items", LostItemsPageResource())
     app.add_route("/stats", StatsPageResource())
+    app.add_route("/members", MemberPageResource())
 
     app.add_route("/api/login", LoginResource())
     app.add_route("/api/user/info", UserInfoResource())
@@ -140,6 +148,19 @@ def create_app():
     app.add_route("/api/appointments/slot-configs", AppointmentSlotConfigResource())
     app.add_route("/api/appointments/{appointment_id:int}", AppointmentDetailResource())
     app.add_route("/api/appointments/{appointment_id:int}/confirm", AppointmentConfirmResource())
+
+    app.add_route("/api/members", MemberListResource())
+    app.add_route("/api/members/stats", MemberStatsResource())
+    app.add_route("/api/members/phone", MemberPhoneResource())
+    app.add_route("/api/members/refresh", MemberRefreshResource())
+    app.add_route("/api/members/behaviors", MemberBehaviorResource())
+    app.add_route("/api/members/blacklist/manage", BlacklistManageResource())
+    app.add_route("/api/members/blacklist/check", BlacklistCheckResource())
+    app.add_route("/api/members/tag-definitions", MemberTagDefinitionsResource())
+    app.add_route("/api/members/blacklist-status-options", BlacklistStatusOptionsResource())
+    app.add_route("/api/members/behavior-type-options", BehaviorTypeOptionsResource())
+    app.add_route("/api/members/blacklist-reason-options", BlacklistReasonOptionsResource())
+    app.add_route("/api/members/{member_id:int}", MemberDetailResource())
 
     app.add_route("/static/{filename}", StaticResource())
 

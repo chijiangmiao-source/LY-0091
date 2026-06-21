@@ -1,0 +1,684 @@
+{% extends "layout.html" %}
+{% block page_title %}会员画像与黑名单管理{% endblock %}
+{% block page_content %}
+<div x-data="memberApp()" x-init="loadAll()" class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center space-x-2">
+                <label class="text-sm text-gray-600">状态：</label>
+                <select x-model="filter.blacklist_status" @change="loadMembers()"
+                    class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                    <option value="">全部</option>
+                    <template x-for="opt in blacklistStatusOptions" :key="opt.value">
+                        <option :value="opt.value" x-text="opt.label"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="flex items-center space-x-2">
+                <label class="text-sm text-gray-600">标签：</label>
+                <select x-model="filter.tag" @change="loadMembers()"
+                    class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                    <option value="">全部标签</option>
+                    <template x-for="t in tagDefinitions" :key="t.key">
+                        <option :value="t.key" x-text="t.name"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="relative">
+                <input type="text" x-model="filter.keyword" @keydown.enter="loadMembers()"
+                    placeholder="搜索手机号/姓名"
+                    class="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-48">
+                <svg class="w-4 h-4 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+            <button @click="loadMembers()" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition">搜索</button>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button @click="openSearchModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                查询会员
+            </button>
+            <button @click="openBlacklistModal()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm transition flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                黑名单管理
+            </button>
+            <button @click="refreshAll()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm transition">刷新画像</button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-blue-500">
+            <p class="text-sm text-gray-500">会员总数</p>
+            <p class="text-3xl font-bold text-blue-600 mt-1" x-text="memberStats.overview?.total_members || 0"></p>
+            <p class="text-xs text-gray-400 mt-1">活跃率 <span class="font-medium text-blue-600" x-text="(memberStats.overview?.active_rate || 0) + '%'"></span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-red-500">
+            <p class="text-sm text-gray-500">黑名单</p>
+            <p class="text-3xl font-bold text-red-600 mt-1" x-text="memberStats.overview?.black_count || 0"></p>
+            <p class="text-xs text-gray-400 mt-1">近30天拦截 <span class="font-medium text-red-600" x-text="memberStats.intercept_stats?.total || 0"></span> 次</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-yellow-500">
+            <p class="text-sm text-gray-500">灰名单</p>
+            <p class="text-3xl font-bold text-yellow-600 mt-1" x-text="memberStats.overview?.gray_count || 0"></p>
+            <p class="text-xs text-gray-400 mt-1">需二次校验确认</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-green-500">
+            <p class="text-sm text-gray-500">近30天活跃</p>
+            <p class="text-3xl font-bold text-green-600 mt-1" x-text="memberStats.overview?.active_30_count || 0"></p>
+            <p class="text-xs text-gray-400 mt-1">有到店行为的会员数</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">风险分层分布</h3>
+            <div class="space-y-3">
+                <template x-for="item in riskItems" :key="item.key">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 rounded-full mr-2" :class="item.dotClass"></span>
+                            <span class="text-sm text-gray-700" x-text="item.label"></span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-lg font-bold" :class="item.textClass" x-text="item.count"></span>
+                            <span class="text-xs text-gray-400" x-text="item.percentage + '%'"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <div class="mt-4 h-6 rounded-full overflow-hidden flex">
+                <template x-for="item in riskItems" :key="'bar-'+item.key">
+                    <div :class="item.barClass" :style="{ width: item.percentage + '%' }" :title="item.label + ': ' + item.count"></div>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">会员标签分布</h3>
+            <div class="space-y-3">
+                <template x-for="t in memberStats.tag_distribution || []" :key="t.key">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm text-gray-700" x-text="t.name"></span>
+                            <span class="text-sm font-medium" :class="tagColorClass(t.color)" x-text="t.count + '人 (' + t.percentage + '%)'"></span>
+                        </div>
+                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all" :class="tagBarClass(t.color)" :style="{ width: Math.min(t.percentage, 100) + '%' }"></div>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="(!memberStats.tag_distribution || memberStats.tag_distribution.length === 0)">
+                    <div class="text-center py-4 text-gray-400 text-sm">暂无标签数据</div>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">黑名单拦截效果</h3>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="text-center p-3 bg-red-50 rounded-lg">
+                    <p class="text-2xl font-bold text-red-600" x-text="memberStats.intercept_stats?.total || 0"></p>
+                    <p class="text-xs text-gray-500">拦截总次数</p>
+                </div>
+                <div class="text-center p-3 bg-green-50 rounded-lg">
+                    <p class="text-2xl font-bold text-green-600" x-text="memberStats.intercept_stats?.pass_verify_count || 0"></p>
+                    <p class="text-xs text-gray-500">二次校验通过</p>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <template x-for="(count, scene) in (memberStats.intercept_stats?.by_scene || {})" :key="scene">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-600" x-text="sceneText(scene)"></span>
+                        <span class="font-medium text-red-600" x-text="count + '次'"></span>
+                    </div>
+                </template>
+                <template x-if="Object.keys(memberStats.intercept_stats?.by_scene || {}).length === 0">
+                    <div class="text-center py-2 text-gray-400 text-sm">暂无拦截记录</div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-800">会员列表</h3>
+            <span class="text-sm text-gray-500" x-text="'共 ' + (memberPagination.total || 0) + ' 条'"></span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">手机号</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">姓名</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">标签</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">状态</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">到店次数</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">爽约次数</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">过号次数</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">遗留物</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">最近到店</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <template x-if="members.length === 0">
+                        <tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">暂无会员数据</td></tr>
+                    </template>
+                    <template x-for="m in members" :key="m.id">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 font-medium text-gray-800" x-text="m.phone"></td>
+                            <td class="px-4 py-3 text-gray-600" x-text="m.customer_name || '-'"></td>
+                            <td class="px-4 py-3">
+                                <div class="flex flex-wrap gap-1">
+                                    <template x-for="t in (m.tag_details || [])" :key="t.key">
+                                        <span class="px-2 py-0.5 rounded text-xs font-medium"
+                                              :class="tagBadgeClass(t.color)"
+                                              x-text="t.name"></span>
+                                    </template>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 rounded text-xs font-medium"
+                                    :class="{
+                                        'bg-red-100 text-red-700': m.blacklist_status === 'black',
+                                        'bg-yellow-100 text-yellow-700': m.blacklist_status === 'gray',
+                                        'bg-green-100 text-green-700': m.blacklist_status === 'normal'
+                                    }"
+                                    x-text="m.blacklist_status_text"></span>
+                            </td>
+                            <td class="px-4 py-3 text-gray-600" x-text="m.total_visits"></td>
+                            <td class="px-4 py-3" :class="m.total_no_shows > 0 ? 'text-red-600 font-medium' : 'text-gray-400'" x-text="m.total_no_shows"></td>
+                            <td class="px-4 py-3" :class="m.total_overtimes > 0 ? 'text-orange-600 font-medium' : 'text-gray-400'" x-text="m.total_overtimes"></td>
+                            <td class="px-4 py-3" :class="m.total_lost_items > 0 ? 'text-orange-600 font-medium' : 'text-gray-400'" x-text="m.total_lost_items"></td>
+                            <td class="px-4 py-3 text-gray-500 text-xs" x-text="m.last_visit_at ? formatDate(m.last_visit_at) : '-'"></td>
+                            <td class="px-4 py-3 space-x-1 whitespace-nowrap">
+                                <button @click="openDetailModal(m)" class="text-blue-600 hover:text-blue-700 text-xs">详情</button>
+                                <button x-show="m.blacklist_status === 'normal'" @click="openAddBlacklistModal(m, 'gray')" class="text-yellow-600 hover:text-yellow-700 text-xs">加灰名单</button>
+                                <button x-show="m.blacklist_status !== 'black'" @click="openAddBlacklistModal(m, 'black')" class="text-red-600 hover:text-red-700 text-xs">加黑名单</button>
+                                <button x-show="m.blacklist_status !== 'normal'" @click="handleRemoveBlacklist(m)" class="text-green-600 hover:text-green-700 text-xs">解除</button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        <div class="px-6 py-3 border-t flex items-center justify-between">
+            <span class="text-sm text-gray-500"
+                  x-text="'第 ' + memberPagination.page + ' / ' + Math.max(1, Math.ceil((memberPagination.total || 0) / (memberPagination.page_size || 20))) + ' 页'"></span>
+            <div class="flex space-x-2">
+                <button @click="prevPage()" :disabled="memberPagination.page <= 1"
+                        class="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">上一页</button>
+                <button @click="nextPage()" :disabled="memberPagination.page >= Math.ceil((memberPagination.total || 0) / (memberPagination.page_size || 20))"
+                        class="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">下一页</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">会员活跃度趋势（近30天）</h3>
+            <div class="space-y-2">
+                <template x-for="d in (memberStats.daily_active || []).slice().reverse().slice(-14)" :key="d.date">
+                    <div class="flex items-center">
+                        <span class="w-20 text-xs text-gray-500" x-text="d.date.slice(5)"></span>
+                        <div class="flex-1 h-6 mx-2 rounded relative overflow-hidden bg-gray-100">
+                            <div class="absolute left-0 top-0 bottom-0 rounded bg-blue-400 transition-all"
+                                 :style="{ width: (d.active_count / maxDailyActive * 100) + '%' }"></div>
+                            <span class="absolute inset-0 flex items-center px-2 text-xs font-medium"
+                                  :class="d.active_count > 0 ? 'text-blue-800' : 'text-gray-400'"
+                                  x-text="d.active_count"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">黑名单拦截趋势</h3>
+            <div class="space-y-2">
+                <template x-for="d in (memberStats.intercept_stats?.daily || []).slice().reverse().slice(-14)" :key="d.date">
+                    <div class="flex items-center">
+                        <span class="w-20 text-xs text-gray-500" x-text="d.date.slice(5)"></span>
+                        <div class="flex-1 h-6 mx-2 rounded relative overflow-hidden bg-gray-100">
+                            <div class="absolute left-0 top-0 bottom-0 rounded bg-red-400 transition-all"
+                                 :style="{ width: (d.intercept_count / maxDailyIntercept * 100) + '%' }"></div>
+                            <span class="absolute inset-0 flex items-center px-2 text-xs font-medium"
+                                  :class="d.intercept_count > 0 ? 'text-red-800' : 'text-gray-400'"
+                                  x-text="d.intercept_count"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showSearchModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 mx-4">
+            <h3 class="text-lg font-semibold mb-4">查询会员画像</h3>
+            <form @submit.prevent="handleSearch" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">手机号 *</label>
+                    <input type="tel" x-model="searchPhone" required pattern="[0-9]{11}"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="输入11位手机号查询会员画像">
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" @click="showSearchModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">查询</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div x-show="showDetailModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6 mx-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold">会员画像详情</h3>
+                <button @click="showDetailModal = false" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <template x-if="currentMember">
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="p-3 bg-blue-50 rounded-lg text-center">
+                            <p class="text-xs text-gray-500">到店次数</p>
+                            <p class="text-xl font-bold text-blue-600" x-text="currentMember.total_visits || 0"></p>
+                        </div>
+                        <div class="p-3 bg-red-50 rounded-lg text-center">
+                            <p class="text-xs text-gray-500">爽约次数</p>
+                            <p class="text-xl font-bold text-red-600" x-text="currentMember.total_no_shows || 0"></p>
+                        </div>
+                        <div class="p-3 bg-orange-50 rounded-lg text-center">
+                            <p class="text-xs text-gray-500">过号次数</p>
+                            <p class="text-xl font-bold text-orange-600" x-text="currentMember.total_overtimes || 0"></p>
+                        </div>
+                        <div class="p-3 bg-yellow-50 rounded-lg text-center">
+                            <p class="text-xs text-gray-500">遗留物次数</p>
+                            <p class="text-xl font-bold text-yellow-600" x-text="currentMember.total_lost_items || 0"></p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <div>
+                            <span class="text-sm text-gray-500">手机号：</span>
+                            <span class="font-medium" x-text="currentMember.phone"></span>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">姓名：</span>
+                            <span class="font-medium" x-text="currentMember.customer_name || '-'"></span>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">状态：</span>
+                            <span class="px-2 py-1 rounded text-xs font-medium"
+                                :class="{
+                                    'bg-red-100 text-red-700': currentMember.blacklist_status === 'black',
+                                    'bg-yellow-100 text-yellow-700': currentMember.blacklist_status === 'gray',
+                                    'bg-green-100 text-green-700': currentMember.blacklist_status === 'normal'
+                                }"
+                                x-text="currentMember.blacklist_status_text"></span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="text-sm text-gray-500 mb-2">标签：</p>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="t in (currentMember.tag_details || [])" :key="t.key">
+                                <span class="px-3 py-1 rounded-full text-xs font-medium"
+                                      :class="tagBadgeClass(t.color)"
+                                      x-text="t.name + (t.description ? '（' + t.description + '）' : '')"></span>
+                            </template>
+                            <template x-if="(currentMember.tag_details || []).length === 0">
+                                <span class="text-sm text-gray-400">暂无标签</span>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="text-sm font-medium text-gray-700 mb-2">最近行为记录</p>
+                        <div class="max-h-40 overflow-y-auto border rounded-lg">
+                            <table class="w-full text-xs">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-gray-600">类型</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">详情</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50">
+                                    <template x-for="b in (currentMember.recent_behaviors || [])" :key="b.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-3 py-2">
+                                                <span class="px-1.5 py-0.5 rounded text-xs"
+                                                    :class="behaviorBadgeClass(b.behavior_type)"
+                                                    x-text="b.behavior_type_text"></span>
+                                            </td>
+                                            <td class="px-3 py-2 text-gray-600" x-text="b.detail || '-'"></td>
+                                            <td class="px-3 py-2 text-gray-400" x-text="formatDate(b.recorded_at)"></td>
+                                        </tr>
+                                    </template>
+                                    <template x-if="(currentMember.recent_behaviors || []).length === 0">
+                                        <tr><td colspan="3" class="px-3 py-4 text-center text-gray-400">暂无行为记录</td></tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div x-show="(currentMember.blacklist_logs || []).length > 0">
+                        <p class="text-sm font-medium text-gray-700 mb-2">黑名单操作记录</p>
+                        <div class="max-h-32 overflow-y-auto border rounded-lg">
+                            <table class="w-full text-xs">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-gray-600">操作</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">原因</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50">
+                                    <template x-for="l in (currentMember.blacklist_logs || [])" :key="l.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-3 py-2">
+                                                <span :class="l.action.includes('add') ? 'text-red-600' : 'text-green-600'" x-text="l.action_text"></span>
+                                            </td>
+                                            <td class="px-3 py-2 text-gray-600" x-text="l.reason || '-'"></td>
+                                            <td class="px-3 py-2 text-gray-400" x-text="formatDate(l.operated_at)"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div x-show="showBlacklistModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 mx-4">
+            <h3 class="text-lg font-semibold mb-4" x-text="blacklistModalTitle"></h3>
+            <form @submit.prevent="handleBlacklistAction" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">手机号 *</label>
+                    <input type="tel" x-model="blacklistForm.phone" required pattern="[0-9]{11}"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="输入11位手机号">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">操作类型 *</label>
+                    <select x-model="blacklistForm.action"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="add_black">加入黑名单</option>
+                        <option value="add_gray">加入灰名单</option>
+                        <option value="remove_black">移出黑名单</option>
+                        <option value="remove_gray">移出灰名单</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">原因</label>
+                    <select x-model="blacklistForm.reason_category"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2">
+                        <template x-for="opt in blacklistReasonOptions" :key="opt.value">
+                            <option :value="opt.value" x-text="opt.label"></option>
+                        </template>
+                    </select>
+                    <textarea x-model="blacklistForm.reason" rows="2"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="补充说明（选填）"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" @click="showBlacklistModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+                    <button type="submit" :disabled="submitting"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 transition">
+                        <span x-text="submitting ? '处理中...' : '确认'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+function memberApp() {
+    return {
+        members: [],
+        memberStats: { overview: {}, risk_distribution: {}, tag_distribution: [], intercept_stats: {}, daily_active: [] },
+        memberPagination: { total: 0, page: 1, page_size: 20 },
+        filter: { blacklist_status: '', tag: '', keyword: '' },
+        tagDefinitions: [],
+        blacklistStatusOptions: [],
+        blacklistReasonOptions: [],
+        currentMember: null,
+        searchPhone: '',
+        blacklistForm: { phone: '', action: 'add_black', reason: '', reason_category: 'manual' },
+        submitting: false,
+        showSearchModal: false,
+        showDetailModal: false,
+        showBlacklistModal: false,
+
+        get blacklistModalTitle() {
+            return '黑名单/灰名单管理';
+        },
+
+        get riskItems() {
+            const rd = this.memberStats.risk_distribution || {};
+            const total = this.memberStats.overview?.total_members || 1;
+            return [
+                { key: 'low', label: '低风险', count: rd.low || 0, percentage: Math.round((rd.low || 0) / total * 100), dotClass: 'bg-green-500', textClass: 'text-green-600', barClass: 'bg-green-400' },
+                { key: 'medium', label: '中风险', count: rd.medium || 0, percentage: Math.round((rd.medium || 0) / total * 100), dotClass: 'bg-blue-500', textClass: 'text-blue-600', barClass: 'bg-blue-400' },
+                { key: 'high', label: '高风险', count: rd.high || 0, percentage: Math.round((rd.high || 0) / total * 100), dotClass: 'bg-yellow-500', textClass: 'text-yellow-600', barClass: 'bg-yellow-400' },
+                { key: 'blocked', label: '黑名单', count: rd.blocked || 0, percentage: Math.round((rd.blocked || 0) / total * 100), dotClass: 'bg-red-500', textClass: 'text-red-600', barClass: 'bg-red-400' },
+            ];
+        },
+
+        get maxDailyActive() {
+            return Math.max(...(this.memberStats.daily_active || []).map(d => d.active_count), 1);
+        },
+
+        get maxDailyIntercept() {
+            return Math.max(...(this.memberStats.intercept_stats?.daily || []).map(d => d.intercept_count), 1);
+        },
+
+        sceneText(scene) {
+            const map = { appointment: '预约', queue: '取号', claim: '认领', unknown: '未知' };
+            return map[scene] || scene;
+        },
+
+        tagBadgeClass(color) {
+            const map = {
+                blue: 'bg-blue-100 text-blue-700',
+                red: 'bg-red-100 text-red-700',
+                purple: 'bg-purple-100 text-purple-700',
+                orange: 'bg-orange-100 text-orange-700',
+                yellow: 'bg-yellow-100 text-yellow-700',
+                gray: 'bg-gray-200 text-gray-700',
+                black: 'bg-gray-800 text-white',
+                default: 'bg-gray-100 text-gray-700'
+            };
+            return map[color] || map.default;
+        },
+
+        tagColorClass(color) {
+            const map = { blue: 'text-blue-600', red: 'text-red-600', purple: 'text-purple-600', orange: 'text-orange-600', yellow: 'text-yellow-600', gray: 'text-gray-600', black: 'text-gray-800' };
+            return map[color] || 'text-gray-600';
+        },
+
+        tagBarClass(color) {
+            const map = { blue: 'bg-blue-400', red: 'bg-red-400', purple: 'bg-purple-400', orange: 'bg-orange-400', yellow: 'bg-yellow-400', gray: 'bg-gray-400', black: 'bg-gray-700' };
+            return map[color] || 'bg-gray-400';
+        },
+
+        behaviorBadgeClass(type) {
+            const map = {
+                fitting: 'bg-blue-100 text-blue-700',
+                appointment: 'bg-purple-100 text-purple-700',
+                no_show: 'bg-red-100 text-red-700',
+                overtime: 'bg-orange-100 text-orange-700',
+                lost_item: 'bg-yellow-100 text-yellow-700',
+                claim: 'bg-green-100 text-green-700',
+                blacklist_add: 'bg-red-200 text-red-800',
+                blacklist_remove: 'bg-green-200 text-green-800',
+                graylist_add: 'bg-yellow-200 text-yellow-800',
+                graylist_remove: 'bg-green-200 text-green-800',
+                intercept: 'bg-red-300 text-red-900'
+            };
+            return map[type] || 'bg-gray-100 text-gray-700';
+        },
+
+        async loadAll() {
+            await Promise.all([
+                this.loadMembers(),
+                this.loadMemberStats(),
+                this.loadTagDefinitions(),
+                this.loadOptions()
+            ]);
+        },
+
+        async loadMembers() {
+            let url = `/api/members?page=${this.memberPagination.page}&page_size=${this.memberPagination.page_size}`;
+            if (this.filter.blacklist_status) url += `&blacklist_status=${this.filter.blacklist_status}`;
+            if (this.filter.tag) url += `&tag=${this.filter.tag}`;
+            if (this.filter.keyword) url += `&keyword=${this.filter.keyword}`;
+            const res = await API.get(url);
+            if (res?.code === 0) {
+                this.members = res.data.list;
+                this.memberPagination.total = res.data.total;
+                this.memberPagination.page = res.data.page;
+            }
+        },
+
+        async loadMemberStats() {
+            const res = await API.get('/api/members/stats?days=30');
+            if (res?.code === 0) this.memberStats = res.data;
+        },
+
+        async loadTagDefinitions() {
+            const res = await API.get('/api/members/tag-definitions');
+            if (res?.code === 0) this.tagDefinitions = res.data;
+        },
+
+        async loadOptions() {
+            const [statusRes, reasonRes] = await Promise.all([
+                API.get('/api/members/blacklist-status-options'),
+                API.get('/api/members/blacklist-reason-options')
+            ]);
+            if (statusRes?.code === 0) this.blacklistStatusOptions = statusRes.data;
+            if (reasonRes?.code === 0) this.blacklistReasonOptions = reasonRes.data;
+        },
+
+        prevPage() {
+            if (this.memberPagination.page > 1) {
+                this.memberPagination.page--;
+                this.loadMembers();
+            }
+        },
+
+        nextPage() {
+            const totalPages = Math.ceil(this.memberPagination.total / this.memberPagination.page_size);
+            if (this.memberPagination.page < totalPages) {
+                this.memberPagination.page++;
+                this.loadMembers();
+            }
+        },
+
+        openSearchModal() {
+            this.searchPhone = '';
+            this.showSearchModal = true;
+        },
+
+        async handleSearch() {
+            if (!this.searchPhone) return;
+            this.showSearchModal = false;
+            const res = await API.get('/api/members/phone?phone=' + this.searchPhone);
+            if (res?.code === 0 && res.data) {
+                this.currentMember = res.data;
+                this.showDetailModal = true;
+            } else {
+                toast('未找到该会员', 'warning');
+            }
+        },
+
+        async openDetailModal(member) {
+            const res = await API.get('/api/members/' + member.id);
+            if (res?.code === 0) {
+                this.currentMember = res.data;
+                this.showDetailModal = true;
+            }
+        },
+
+        openBlacklistModal() {
+            this.blacklistForm = { phone: '', action: 'add_black', reason: '', reason_category: 'manual' };
+            this.showBlacklistModal = true;
+        },
+
+        openAddBlacklistModal(member, type) {
+            this.blacklistForm = {
+                phone: member.phone,
+                action: type === 'black' ? 'add_black' : 'add_gray',
+                reason: '',
+                reason_category: 'manual'
+            };
+            this.showBlacklistModal = true;
+        },
+
+        async handleBlacklistAction() {
+            this.submitting = true;
+            try {
+                const reasonText = this.blacklistForm.reason_category
+                    ? (this.blacklistReasonOptions.find(o => o.value === this.blacklistForm.reason_category)?.label || '')
+                    : '';
+                const fullReason = [reasonText, this.blacklistForm.reason].filter(Boolean).join(' - ');
+                const res = await API.post('/api/members/blacklist/manage', {
+                    phone: this.blacklistForm.phone,
+                    action: this.blacklistForm.action,
+                    reason: fullReason
+                });
+                if (res?.code === 0) {
+                    toast('操作成功', 'success');
+                    this.showBlacklistModal = false;
+                    this.loadMembers();
+                    this.loadMemberStats();
+                } else {
+                    toast(res?.message || '操作失败', 'error');
+                }
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        async handleRemoveBlacklist(member) {
+            const action = member.blacklist_status === 'black' ? 'remove_black' : 'remove_gray';
+            if (!confirm(`确定要将该会员移出${member.blacklist_status === 'black' ? '黑' : '灰'}名单吗？`)) return;
+            const res = await API.post('/api/members/blacklist/manage', {
+                phone: member.phone,
+                action: action,
+                reason: '人工解除'
+            });
+            if (res?.code === 0) {
+                toast('已解除', 'success');
+                this.loadMembers();
+                this.loadMemberStats();
+            } else {
+                toast(res?.message || '操作失败', 'error');
+            }
+        },
+
+        async refreshAll() {
+            if (!confirm('确定要刷新所有会员画像数据吗？此操作可能需要一些时间。')) return;
+            const res = await API.post('/api/members/refresh', {});
+            if (res?.code === 0) {
+                toast(res.message, 'success');
+                this.loadMembers();
+                this.loadMemberStats();
+            } else {
+                toast(res?.message || '刷新失败', 'error');
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

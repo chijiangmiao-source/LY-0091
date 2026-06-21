@@ -55,3 +55,9 @@ class StatsPageResource:
     async def on_get(self, req, resp):
         resp.content_type = "text/html; charset=utf-8"
         resp.text = render_template("stats.html")
+
+
+class MemberPageResource:
+    async def on_get(self, req, resp):
+        resp.content_type = "text/html; charset=utf-8"
+        resp.text = render_template("member.html")

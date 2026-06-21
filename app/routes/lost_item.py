@@ -2,6 +2,7 @@ import falcon
 import json
 from datetime import datetime
 from app.models import LostItem, FittingRoom, QueueRecord, User, LOST_ITEM_STATUS
+from app.routes.member import check_blacklist, record_behavior
 
 
 class LostItemListResource:
@@ -157,6 +158,21 @@ class LostItemClaimResource:
         if not data.get("claimant_id_number"):
             raise falcon.HTTPBadRequest(title="参数错误", description="请填写认领人证件号")
 
+        claimant_phone = (data.get("claimant_phone") or "").strip()
+        blacklist_result = await check_blacklist(claimant_phone, "claim")
+        if blacklist_result["is_blocked"]:
+            raise falcon.HTTPBadRequest(
+                title="认领失败",
+                description=f"认领人手机号已被加入黑名单，无法办理认领。原因：{blacklist_result['reason']}"
+            )
+        if blacklist_result["is_gray"]:
+            need_verify = data.get("verify_code")
+            if not need_verify:
+                raise falcon.HTTPBadRequest(
+                    title="需要二次校验",
+                    description=f"认领人手机号处于灰名单，需工作人员确认后方可认领。原因：{blacklist_result['reason']}"
+                )
+
         current_user = req.context.get("user")
 
         item.claimant_name = data.get("claimant_name")
@@ -172,6 +188,13 @@ class LostItemClaimResource:
             if item.fitting_room.status == "sealed":
                 item.fitting_room.status = "cleaning"
                 await item.fitting_room.update()
+
+        await record_behavior(
+            phone=claimant_phone,
+            behavior_type="claim",
+            related_id=item.id,
+            detail=f"认领物品：{item.item_name}，认领人：{data.get('claimant_name')}"
+        )
 
         resp.media = {"code": 0, "message": "认领登记成功"}
 

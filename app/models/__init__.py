@@ -10,6 +10,11 @@ from app.models.appointment import (
     NO_SHOW_PENALTY_LEVELS, NO_SHOW_RECORD_EXPIRE_DAYS,
     get_no_show_penalty, get_no_show_count_with_penalty
 )
+from app.models.member import (
+    MemberProfile, MemberBehavior, BlacklistLog,
+    MEMBER_TAG_DEFINITIONS, BLACKLIST_STATUS, BLACKLIST_REASON,
+    BEHAVIOR_TYPES, BLACKLIST_ACTIONS
+)
 
 __all__ = [
     "User",
@@ -34,4 +39,12 @@ __all__ = [
     "NO_SHOW_RECORD_EXPIRE_DAYS",
     "get_no_show_penalty",
     "get_no_show_count_with_penalty",
+    "MemberProfile",
+    "MemberBehavior",
+    "BlacklistLog",
+    "MEMBER_TAG_DEFINITIONS",
+    "BLACKLIST_STATUS",
+    "BLACKLIST_REASON",
+    "BEHAVIOR_TYPES",
+    "BLACKLIST_ACTIONS",
 ]

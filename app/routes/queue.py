@@ -6,6 +6,7 @@ from app.models import (
     QueueRecord, FittingRoom, Store, QUEUE_STATUS, QUEUE_SOURCE, ROOM_STATUS,
     get_no_show_count_with_penalty
 )
+from app.routes.member import check_blacklist, record_behavior, get_or_create_member
 
 
 FAIR_CALL_RATIO = 2
@@ -119,6 +120,20 @@ class QueueListResource:
         if not phone:
             raise falcon.HTTPBadRequest(title="参数错误", description="手机号不能为空")
 
+        blacklist_result = await check_blacklist(phone, "queue")
+        if blacklist_result["is_blocked"]:
+            raise falcon.HTTPBadRequest(
+                title="取号失败",
+                description=f"该手机号已被加入黑名单，无法现场取号。原因：{blacklist_result['reason']}"
+            )
+        if blacklist_result["is_gray"]:
+            need_verify = data.get("verify_code")
+            if not need_verify:
+                raise falcon.HTTPBadRequest(
+                    title="需要二次校验",
+                    description=f"该手机号处于灰名单，需要工作人员确认后方可取号。原因：{blacklist_result['reason']}"
+                )
+
         penalty_info = await get_no_show_count_with_penalty(phone)
         penalty = penalty_info["penalty"]
         if not penalty["can_onsite"]:
@@ -156,6 +171,15 @@ class QueueListResource:
             appointment_id=data.get("appointment_id")
         )
         await record.save()
+
+        await get_or_create_member(phone, data.get("customer_name"))
+        await record_behavior(
+            phone=phone,
+            behavior_type="fitting",
+            related_id=record.id,
+            store_name=store.name if store else None,
+            detail=f"取号：{ticket_number}，来源：{QUEUE_SOURCE.get(source, source)}"
+        )
 
         result = record.dict()
         result["status_text"] = QUEUE_STATUS.get(record.status, record.status)

@@ -31,7 +31,16 @@ from app.routes.appointment import (
 from app.routes.pages import (
     LoginPageResource, DashboardPageResource,
     StoresPageResource, FittingRoomsPageResource,
-    QueuePageResource, LostItemsPageResource, StatsPageResource
+    QueuePageResource, LostItemsPageResource, StatsPageResource,
+    MemberPageResource
+)
+from app.routes.member import (
+    MemberListResource, MemberDetailResource, MemberPhoneResource,
+    MemberRefreshResource, MemberBehaviorResource,
+    BlacklistManageResource, BlacklistCheckResource,
+    MemberStatsResource, MemberTagDefinitionsResource,
+    BlacklistStatusOptionsResource, BehaviorTypeOptionsResource,
+    BlacklistReasonOptionsResource
 )
 
 __all__ = [
@@ -58,4 +67,11 @@ __all__ = [
     "LoginPageResource", "DashboardPageResource",
     "StoresPageResource", "FittingRoomsPageResource",
     "QueuePageResource", "LostItemsPageResource", "StatsPageResource",
+    "MemberPageResource",
+    "MemberListResource", "MemberDetailResource", "MemberPhoneResource",
+    "MemberRefreshResource", "MemberBehaviorResource",
+    "BlacklistManageResource", "BlacklistCheckResource",
+    "MemberStatsResource", "MemberTagDefinitionsResource",
+    "BlacklistStatusOptionsResource", "BehaviorTypeOptionsResource",
+    "BlacklistReasonOptionsResource",
 ]
