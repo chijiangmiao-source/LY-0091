@@ -15,6 +15,11 @@ QUEUE_STATUS = {
     "abnormal": "异常"
 }
 
+QUEUE_SOURCE = {
+    "on_site": "现场号",
+    "appointment": "预约号"
+}
+
 
 class QueueRecord(ormar.Model):
     class Meta(MainMeta):
@@ -31,6 +36,8 @@ class QueueRecord(ormar.Model):
     enter_time: Optional[datetime] = ormar.DateTime(nullable=True)
     leave_time: Optional[datetime] = ormar.DateTime(nullable=True)
     status: str = ormar.String(max_length=20, default="waiting")
+    source: str = ormar.String(max_length=20, default="on_site")
+    appointment_id: Optional[int] = ormar.Integer(nullable=True)
     is_overtime: bool = ormar.Boolean(default=False)
     is_abnormal: bool = ormar.Boolean(default=False)
     abnormal_reason: str = ormar.String(max_length=500, nullable=True)
@@ -38,3 +45,7 @@ class QueueRecord(ormar.Model):
 
     def is_active(self) -> bool:
         return self.status in ["waiting", "called", "entered"]
+
+    def get_source_text(self) -> str:
+        from app.models.queue_record import QUEUE_SOURCE
+        return QUEUE_SOURCE.get(self.source, self.source)

@@ -2,7 +2,10 @@ import falcon
 import json
 from datetime import datetime, timedelta
 from app.config import OVER_TIME_MINUTES
-from app.models import QueueRecord, FittingRoom, Store, QUEUE_STATUS, ROOM_STATUS
+from app.models import QueueRecord, FittingRoom, Store, QUEUE_STATUS, QUEUE_SOURCE, ROOM_STATUS
+
+
+FAIR_CALL_RATIO = 2
 
 
 async def generate_ticket_number(store_id=None):
@@ -36,6 +39,43 @@ async def generate_ticket_number(store_id=None):
     return ticket_number
 
 
+async def get_fair_next_record(store_id=None):
+    waiting_query = QueueRecord.objects.filter(status="waiting").select_related("store")
+    if store_id is not None:
+        waiting_query = waiting_query.filter(store__id=store_id)
+
+    appointment_waiting = await waiting_query.filter(
+        source="appointment"
+    ).order_by("queue_time").all()
+    onsite_waiting = await waiting_query.filter(
+        source="on_site"
+    ).order_by("queue_time").all()
+
+    called_query = QueueRecord.objects.filter(status__in=["called", "entered", "left"]).select_related("store")
+    if store_id is not None:
+        called_query = called_query.filter(store__id=store_id)
+
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    recent_called = await called_query.filter(
+        call_time__gte=today_start
+    ).order_by("-call_time").limit(FAIR_CALL_RATIO * 2).all()
+
+    recent_appointment_count = sum(1 for r in recent_called if r.source == "appointment")
+    recent_onsite_count = sum(1 for r in recent_called if r.source == "on_site")
+
+    if appointment_waiting and onsite_waiting:
+        if recent_appointment_count >= recent_onsite_count:
+            return onsite_waiting[0]
+        else:
+            return appointment_waiting[0]
+    elif appointment_waiting:
+        return appointment_waiting[0]
+    elif onsite_waiting:
+        return onsite_waiting[0]
+    else:
+        return None
+
+
 class QueueListResource:
     async def on_get(self, req, resp):
         store_id = req.get_param_as_int("store_id")
@@ -61,6 +101,7 @@ class QueueListResource:
             if r.fitting_room:
                 data["room_number"] = r.fitting_room.room_number
             data["status_text"] = QUEUE_STATUS.get(r.status, r.status)
+            data["source_text"] = QUEUE_SOURCE.get(r.source, r.source)
             result.append(data)
 
         resp.media = {"code": 0, "message": "获取成功", "data": result}
@@ -90,18 +131,22 @@ class QueueListResource:
                 raise falcon.HTTPBadRequest(title="参数错误", description="门店不存在")
 
         ticket_number = data.get("ticket_number") or await generate_ticket_number(data.get("store_id"))
+        source = data.get("source") or "on_site"
 
         record = QueueRecord(
             ticket_number=ticket_number,
             store=store,
             customer_name=data.get("customer_name"),
             phone=phone,
-            status="waiting"
+            status="waiting",
+            source=source,
+            appointment_id=data.get("appointment_id")
         )
         await record.save()
 
         data = record.dict()
         data["status_text"] = QUEUE_STATUS.get(record.status, record.status)
+        data["source_text"] = QUEUE_SOURCE.get(record.source, record.source)
         resp.media = {"code": 0, "message": "取号成功", "data": data}
 
 
@@ -118,6 +163,7 @@ class QueueDetailResource:
         if record.fitting_room:
             data["room_number"] = record.fitting_room.room_number
         data["status_text"] = QUEUE_STATUS.get(record.status, record.status)
+        data["source_text"] = QUEUE_SOURCE.get(record.source, record.source)
 
         resp.media = {"code": 0, "message": "获取成功", "data": data}
 
@@ -150,7 +196,44 @@ class QueueCallResource:
 
         data = record.dict()
         data["status_text"] = QUEUE_STATUS.get(record.status, record.status)
+        data["source_text"] = QUEUE_SOURCE.get(record.source, record.source)
         resp.media = {"code": 0, "message": "叫号成功", "data": data}
+
+
+class QueueNextCallResource:
+    async def on_get(self, req, resp):
+        store_id = req.get_param_as_int("store_id")
+
+        next_record = await get_fair_next_record(store_id)
+
+        if not next_record:
+            resp.media = {"code": 0, "message": "当前无等待排队", "data": None}
+            return
+
+        waiting_query = QueueRecord.objects.filter(status="waiting").select_related("store")
+        if store_id is not None:
+            waiting_query = waiting_query.filter(store__id=store_id)
+
+        appointment_count = await waiting_query.filter(source="appointment").count()
+        onsite_count = await waiting_query.filter(source="on_site").count()
+
+        data = next_record.dict()
+        if next_record.store:
+            data["store_name"] = next_record.store.name
+        data["status_text"] = QUEUE_STATUS.get(next_record.status, next_record.status)
+        data["source_text"] = QUEUE_SOURCE.get(next_record.source, next_record.source)
+
+        resp.media = {
+            "code": 0,
+            "message": "获取成功",
+            "data": {
+                "next_record": data,
+                "appointment_waiting_count": appointment_count,
+                "onsite_waiting_count": onsite_count,
+                "fair_ratio": f"1:1 (预约:现场交替)",
+                "suggestion": "建议按公平策略依次叫号"
+            }
+        }
 
 
 class QueueEnterResource:
@@ -261,6 +344,7 @@ class QueueOvertimeResource:
 
         data = record.dict()
         data["status_text"] = QUEUE_STATUS.get(record.status, record.status)
+        data["source_text"] = QUEUE_SOURCE.get(record.source, record.source)
         resp.media = {"code": 0, "message": "已标记为过号", "data": data}
 
 
@@ -294,6 +378,7 @@ class QueueRequeueResource:
 
         data = record.dict()
         data["status_text"] = QUEUE_STATUS.get(record.status, record.status)
+        data["source_text"] = QUEUE_SOURCE.get(record.source, record.source)
         resp.media = {"code": 0, "message": "已重新排队（排在队尾，无法恢复原始位置）", "data": data}
 
 
@@ -317,6 +402,7 @@ class QueueWaitingListResource:
             if r.store:
                 d["store_name"] = r.store.name
             d["status_text"] = "排队中"
+            d["source_text"] = QUEUE_SOURCE.get(r.source, r.source)
             waiting_list.append(d)
 
         called_list = []
@@ -325,7 +411,11 @@ class QueueWaitingListResource:
             if r.store:
                 d["store_name"] = r.store.name
             d["status_text"] = "已叫号"
+            d["source_text"] = QUEUE_SOURCE.get(r.source, r.source)
             called_list.append(d)
+
+        appointment_waiting = len([x for x in waiting_list if x.get("source") == "appointment"])
+        onsite_waiting = len([x for x in waiting_list if x.get("source") == "on_site"])
 
         resp.media = {
             "code": 0,
@@ -333,6 +423,8 @@ class QueueWaitingListResource:
             "data": {
                 "waiting_count": len(waiting_list),
                 "called_count": len(called_list),
+                "appointment_waiting_count": appointment_waiting,
+                "onsite_waiting_count": onsite_waiting,
                 "waiting_list": waiting_list,
                 "called_list": called_list
             }
@@ -345,4 +437,13 @@ class QueueStatusResource:
             "code": 0,
             "message": "获取成功",
             "data": [{"value": k, "label": v} for k, v in QUEUE_STATUS.items()]
+        }
+
+
+class QueueSourceResource:
+    async def on_get(self, req, resp):
+        resp.media = {
+            "code": 0,
+            "message": "获取成功",
+            "data": [{"value": k, "label": v} for k, v in QUEUE_SOURCE.items()]
         }

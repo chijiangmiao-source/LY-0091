@@ -5,7 +5,10 @@ import asyncio
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.config import database, metadata, engine
-from app.models import User, Store, FittingRoom
+from app.models import (
+    User, Store, FittingRoom,
+    AppointmentSlotConfig, DEFAULT_TIME_SLOTS, ROOM_TYPES
+)
 
 
 async def init_db():
@@ -91,6 +94,26 @@ async def init_db():
             print(f"✓ 创建试衣间: " + r_data["room_number"])
         else:
             print(f"✓ 试衣间已存在: " + r_data["room_number"])
+
+    stores = await Store.objects.all()
+    for store in stores:
+        for room_type in ROOM_TYPES.keys():
+            for slot in DEFAULT_TIME_SLOTS:
+                exists = await AppointmentSlotConfig.objects.filter(
+                    store__id=store.id,
+                    room_type=room_type,
+                    time_slot=slot
+                ).exists()
+                if not exists:
+                    config = AppointmentSlotConfig(
+                        store=store,
+                        room_type=room_type,
+                        time_slot=slot,
+                        capacity=3,
+                        is_active=True
+                    )
+                    await config.save()
+    print(f"✓ 已初始化预约时段配置")
 
     await database.disconnect()
     print("\n✅ 数据库初始化完成！")

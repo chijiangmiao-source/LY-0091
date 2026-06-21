@@ -16,11 +16,18 @@ from app.routes import (
     QueueCallResource, QueueEnterResource, QueueLeaveResource,
     QueueOvertimeResource, QueueRequeueResource,
     QueueWaitingListResource, QueueStatusResource,
+    QueueNextCallResource, QueueSourceResource,
     LostItemListResource, LostItemDetailResource,
     LostItemSealResource, LostItemClaimResource,
     LostItemDisposeResource, LostItemStatusResource,
     StatsOverviewResource, StatsHourlyResource,
     StatsStoreResource, StatsDailyResource,
+    StatsAppointmentResource, StatsAppointmentPeakResource,
+    AppointmentListResource, AppointmentDetailResource,
+    AppointmentConfirmResource, AppointmentSlotsResource,
+    AppointmentDateRangeResource, AppointmentStatusResource,
+    AppointmentCheckNoShowResource, AppointmentProcessExpiredResource,
+    AppointmentSlotConfigResource,
     LoginPageResource, DashboardPageResource,
     StoresPageResource, FittingRoomsPageResource,
     QueuePageResource, LostItemsPageResource, StatsPageResource,
@@ -100,6 +107,8 @@ def create_app():
     app.add_route("/api/queue", QueueListResource())
     app.add_route("/api/queue/waiting", QueueWaitingListResource())
     app.add_route("/api/queue/status", QueueStatusResource())
+    app.add_route("/api/queue/sources", QueueSourceResource())
+    app.add_route("/api/queue/next-call", QueueNextCallResource())
     app.add_route("/api/queue/{record_id:int}", QueueDetailResource())
     app.add_route("/api/queue/{record_id:int}/call", QueueCallResource())
     app.add_route("/api/queue/{record_id:int}/enter", QueueEnterResource())
@@ -118,6 +127,18 @@ def create_app():
     app.add_route("/api/stats/hourly", StatsHourlyResource())
     app.add_route("/api/stats/stores", StatsStoreResource())
     app.add_route("/api/stats/daily", StatsDailyResource())
+    app.add_route("/api/stats/appointment", StatsAppointmentResource())
+    app.add_route("/api/stats/appointment-peak", StatsAppointmentPeakResource())
+
+    app.add_route("/api/appointments", AppointmentListResource())
+    app.add_route("/api/appointments/slots", AppointmentSlotsResource())
+    app.add_route("/api/appointments/dates", AppointmentDateRangeResource())
+    app.add_route("/api/appointments/status", AppointmentStatusResource())
+    app.add_route("/api/appointments/check-no-show", AppointmentCheckNoShowResource())
+    app.add_route("/api/appointments/process-expired", AppointmentProcessExpiredResource())
+    app.add_route("/api/appointments/slot-configs", AppointmentSlotConfigResource())
+    app.add_route("/api/appointments/{appointment_id:int}", AppointmentDetailResource())
+    app.add_route("/api/appointments/{appointment_id:int}/confirm", AppointmentConfirmResource())
 
     app.add_route("/static/{filename}", StaticResource())
 

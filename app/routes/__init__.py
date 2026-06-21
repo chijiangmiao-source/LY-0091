@@ -8,7 +8,8 @@ from app.routes.queue import (
     QueueListResource, QueueDetailResource,
     QueueCallResource, QueueEnterResource, QueueLeaveResource,
     QueueOvertimeResource, QueueRequeueResource,
-    QueueWaitingListResource, QueueStatusResource
+    QueueWaitingListResource, QueueStatusResource,
+    QueueNextCallResource, QueueSourceResource
 )
 from app.routes.lost_item import (
     LostItemListResource, LostItemDetailResource,
@@ -17,7 +18,15 @@ from app.routes.lost_item import (
 )
 from app.routes.stats import (
     StatsOverviewResource, StatsHourlyResource,
-    StatsStoreResource, StatsDailyResource
+    StatsStoreResource, StatsDailyResource,
+    StatsAppointmentResource, StatsAppointmentPeakResource
+)
+from app.routes.appointment import (
+    AppointmentListResource, AppointmentDetailResource,
+    AppointmentConfirmResource, AppointmentSlotsResource,
+    AppointmentDateRangeResource, AppointmentStatusResource,
+    AppointmentCheckNoShowResource, AppointmentProcessExpiredResource,
+    AppointmentSlotConfigResource
 )
 from app.routes.pages import (
     LoginPageResource, DashboardPageResource,
@@ -34,11 +43,18 @@ __all__ = [
     "QueueCallResource", "QueueEnterResource", "QueueLeaveResource",
     "QueueOvertimeResource", "QueueRequeueResource",
     "QueueWaitingListResource", "QueueStatusResource",
+    "QueueNextCallResource", "QueueSourceResource",
     "LostItemListResource", "LostItemDetailResource",
     "LostItemSealResource", "LostItemClaimResource",
     "LostItemDisposeResource", "LostItemStatusResource",
     "StatsOverviewResource", "StatsHourlyResource",
     "StatsStoreResource", "StatsDailyResource",
+    "StatsAppointmentResource", "StatsAppointmentPeakResource",
+    "AppointmentListResource", "AppointmentDetailResource",
+    "AppointmentConfirmResource", "AppointmentSlotsResource",
+    "AppointmentDateRangeResource", "AppointmentStatusResource",
+    "AppointmentCheckNoShowResource", "AppointmentProcessExpiredResource",
+    "AppointmentSlotConfigResource",
     "LoginPageResource", "DashboardPageResource",
     "StoresPageResource", "FittingRoomsPageResource",
     "QueuePageResource", "LostItemsPageResource", "StatsPageResource",

@@ -15,6 +15,10 @@ APP_PORT = int(os.getenv("APP_PORT", "8000"))
 
 OVER_TIME_MINUTES = 15
 
+APPOINTMENT_TIMEOUT_MINUTES = 15
+NO_SHOW_THRESHOLD = 3
+MAX_FUTURE_APPOINTMENT_DAYS = 7
+
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
 
