@@ -4,7 +4,8 @@ from app.models import (
     Appointment, NoShowRecord, AppointmentSlotConfig, Store,
     APPOINTMENT_STATUS, NO_SHOW_THRESHOLD, APPOINTMENT_TIMEOUT_MINUTES,
     MAX_FUTURE_DAYS, DEFAULT_TIME_SLOTS, ROOM_TYPES,
-    QueueRecord, QUEUE_SOURCE, QUEUE_STATUS
+    QueueRecord, QUEUE_SOURCE, QUEUE_STATUS,
+    get_no_show_count_with_penalty, get_no_show_penalty, NO_SHOW_PENALTY_LEVELS
 )
 from app.routes.queue import generate_ticket_number
 
@@ -187,11 +188,27 @@ class AppointmentListResource:
             except Exception:
                 raise falcon.HTTPBadRequest(title="参数错误", description="门店不存在")
 
-        no_show_count = await get_no_show_count(phone)
-        if no_show_count >= NO_SHOW_THRESHOLD:
+        penalty_info = await get_no_show_count_with_penalty(phone)
+        penalty = penalty_info["penalty"]
+        no_show_count = penalty_info["no_show_count"]
+
+        if not penalty["can_appointment"]:
             raise falcon.HTTPBadRequest(
                 title="预约失败",
-                description=f"您近30天内爽约次数已达{no_show_count}次，暂时无法预约"
+                description=f"您近30天内爽约次数已达{no_show_count}次，"
+                           f"当前处于【{penalty['name']}】状态，暂无法预约。"
+                           f"请联系工作人员处理或等待{penalty.get('ban_days', 30)}天后自动解封。"
+            )
+
+        max_allowed_days = penalty["max_future_days"]
+        today = date.today()
+        max_future = today + timedelta(days=max_allowed_days)
+        if apt_date < today:
+            raise falcon.HTTPBadRequest(title="参数错误", description="不能预约过去的日期")
+        if apt_date > max_future:
+            raise falcon.HTTPBadRequest(
+                title="参数错误",
+                description=f"由于您的爽约记录，当前最多只能预约未来{max_allowed_days}天"
             )
 
         exist_pending = await Appointment.objects.filter(
@@ -233,6 +250,12 @@ class AppointmentListResource:
         result["room_type_text"] = appointment.get_room_type_text()
         result["status_text"] = appointment.get_status_text()
         result["no_show_count"] = no_show_count
+        result["penalty"] = penalty
+        if no_show_count > 0:
+            result["warning"] = (
+                f"您近30天内爽约{no_show_count}次，当前处于【{penalty['name']}】状态。"
+                f"再爽约{penalty_info['remain_times']}次将被封禁。"
+            )
 
         resp.media = {"code": 0, "message": "预约成功", "data": result}
 
@@ -408,20 +431,8 @@ class AppointmentCheckNoShowResource:
         if not phone:
             raise falcon.HTTPBadRequest(title="参数错误", description="手机号不能为空")
 
-        count = await get_no_show_count(phone)
-        is_blocked = count >= NO_SHOW_THRESHOLD
-
-        resp.media = {
-            "code": 0,
-            "message": "获取成功",
-            "data": {
-                "phone": phone,
-                "no_show_count": count,
-                "threshold": NO_SHOW_THRESHOLD,
-                "is_blocked": is_blocked,
-                "remain_times": max(0, NO_SHOW_THRESHOLD - count)
-            }
-        }
+        result = await get_no_show_count_with_penalty(phone)
+        resp.media = {"code": 0, "message": "获取成功", "data": result}
 
 
 class AppointmentProcessExpiredResource:

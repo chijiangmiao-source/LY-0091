@@ -16,7 +16,7 @@
             </div>
             <div class="flex items-center space-x-2">
                 <label class="text-sm text-gray-600">门店：</label>
-                <select x-model="store_id" @change="loadHourly()"
+                <select x-model="store_id" @change="loadHourly(); loadAppointment(); loadAppointmentPeak();"
                     class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="">全部</option>
                     <template x-for="s in stores" :key="s.id">
@@ -50,6 +50,54 @@
             <p class="text-3xl font-bold" :class="(overview.overtime_rate || 0) > 20 ? 'text-red-600' : 'text-orange-600'"
                x-text="(overview.overtime_rate || 0) + '%'"></p>
             <p class="text-xs text-gray-400 mt-2" x-text="'过号 ' + (overview.overtime_records || 0) + ' 人次'"></p>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+        <h3 class="text-lg font-semibold mb-4">📅 预约数据分析</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div class="bg-white/20 rounded-lg p-4">
+                <p class="text-xs text-white/80">预约总数</p>
+                <p class="text-2xl font-bold mt-1" x-text="appointment.summary?.total_appointments || 0"></p>
+            </div>
+            <div class="bg-white/20 rounded-lg p-4">
+                <p class="text-xs text-white/80">到店率</p>
+                <p class="text-2xl font-bold mt-1" x-text="(appointment.summary?.arrival_rate || 0) + '%'"></p>
+            </div>
+            <div class="bg-white/20 rounded-lg p-4">
+                <p class="text-xs text-white/80">爽约率</p>
+                <p class="text-2xl font-bold mt-1" x-text="(appointment.summary?.no_show_rate || 0) + '%'"></p>
+            </div>
+            <div class="bg-white/20 rounded-lg p-4">
+                <p class="text-xs text-white/80">取消率</p>
+                <p class="text-2xl font-bold mt-1" x-text="(appointment.summary?.cancel_rate || 0) + '%'"></p>
+            </div>
+            <div class="bg-white/20 rounded-lg p-4">
+                <p class="text-xs text-white/80">预约排队占比</p>
+                <p class="text-2xl font-bold mt-1" x-text="(appointment.summary?.appointment_queue_ratio || 0) + '%'"></p>
+            </div>
+            <div class="bg-white/20 rounded-lg p-4">
+                <p class="text-xs text-white/80">被封禁用户</p>
+                <p class="text-2xl font-bold mt-1" x-text="appointment.summary?.blocked_users_count || 0"></p>
+            </div>
+        </div>
+        <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+                <span class="text-white/70">待核销：</span>
+                <span class="font-medium" x-text="appointment.summary?.pending || 0"></span>
+            </div>
+            <div>
+                <span class="text-white/70">已核销：</span>
+                <span class="font-medium" x-text="appointment.summary?.confirmed || 0"></span>
+            </div>
+            <div>
+                <span class="text-white/70">已取消：</span>
+                <span class="font-medium" x-text="appointment.summary?.cancelled || 0"></span>
+            </div>
+            <div>
+                <span class="text-white/70">爽约：</span>
+                <span class="font-medium" x-text="appointment.summary?.no_show || 0"></span>
+            </div>
         </div>
     </div>
 
@@ -127,6 +175,81 @@
         </div>
     </div>
 
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">🔥 预约高峰时段分析</h3>
+                <div class="text-sm text-gray-500" x-show="appointmentPeak.peaks?.peak_hour">
+                    最热门时段：<span class="font-medium text-red-600" x-text="appointmentPeak.peaks?.peak_hour?.hour"></span>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <template x-for="h in appointmentPeak.hour_stats || []" :key="h.hour">
+                    <div class="flex items-center">
+                        <span class="w-16 text-sm text-gray-600" x-text="h.hour"></span>
+                        <div class="flex-1 h-8 mx-3 rounded relative overflow-hidden bg-gray-100">
+                            <div class="absolute left-0 top-0 bottom-0 rounded transition-all duration-500"
+                                 :class="heatLevelClass(h.heat_level)"
+                                 :style="{ width: (h.total / maxAppointmentHourCount * 100) + '%' }"></div>
+                            <span class="absolute inset-0 flex items-center px-3 text-sm font-medium"
+                                  :class="h.heat_level >= 3 ? 'text-white' : 'text-gray-700'"
+                                  x-text="h.total"></span>
+                        </div>
+                        <span class="w-20 text-right text-xs text-gray-500" x-text="'到店' + (h.arrival_rate || 0) + '%'"></span>
+                    </div>
+                </template>
+            </div>
+            <div class="mt-4 pt-4 border-t">
+                <h4 class="text-sm font-medium text-gray-700 mb-2">周分布</h4>
+                <div class="grid grid-cols-7 gap-2">
+                    <template x-for="w in appointmentPeak.weekday_stats || []" :key="w.weekday">
+                        <div class="text-center p-2 rounded-lg" :class="heatBgClass(w.heat_level)">
+                            <p class="text-xs text-gray-500" x-text="w.weekday"></p>
+                            <p class="text-lg font-bold" :class="w.heat_level >= 3 ? 'text-white' : 'text-gray-800'" x-text="w.total"></p>
+                        </div>
+                    </template>
+                </div>
+                <div class="mt-2 text-xs text-gray-500 text-center" x-show="appointmentPeak.peaks?.peak_weekday">
+                    最热门：<span class="font-medium" x-text="appointmentPeak.peaks?.peak_weekday?.weekday + '（' + appointmentPeak.peaks?.peak_weekday?.total + '次）'"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">试衣间类型预约分析</h3>
+            <div class="space-y-4">
+                <template x-for="rt in appointment.room_type_stats || []" :key="rt.room_type">
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-medium text-gray-800" x-text="rt.room_type_text"></span>
+                            <span class="text-sm text-gray-500" x-text="'共' + rt.total + '次预约'"></span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <p class="text-xs text-gray-500">到店</p>
+                                <p class="text-xl font-bold text-green-600" x-text="(rt.arrival_rate || 0) + '%'"></p>
+                                <p class="text-xs text-gray-400" x-text="rt.confirmed + '人'"></p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">爽约</p>
+                                <p class="text-xl font-bold" :class="(rt.no_show_rate || 0) > 20 ? 'text-red-600' : 'text-orange-600'" x-text="(rt.no_show_rate || 0) + '%'"></p>
+                                <p class="text-xs text-gray-400" x-text="rt.no_show + '人'"></p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">未到</p>
+                                <p class="text-xl font-bold text-gray-600" x-text="(100 - rt.arrival_rate - rt.no_show_rate).toFixed(1) + '%'"></p>
+                                <p class="text-xs text-gray-400" x-text="(rt.total - rt.confirmed - rt.no_show) + '人'"></p>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="(!appointment.room_type_stats || appointment.room_type_stats.length === 0)">
+                    <div class="text-center py-8 text-gray-400">暂无预约数据</div>
+                </template>
+            </div>
+        </div>
+    </div>
+
     <div class="bg-white rounded-xl shadow-sm p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">每日趋势（近30天）</h3>
         <div class="overflow-x-auto">
@@ -139,15 +262,18 @@
                         <th class="px-4 py-3 text-left font-medium text-gray-600">过号数</th>
                         <th class="px-4 py-3 text-left font-medium text-gray-600">平均等候</th>
                         <th class="px-4 py-3 text-left font-medium text-gray-600">过号率</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">预约数</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">到店率</th>
+                        <th class="px-4 py-3 text-left font-medium text-gray-600">爽约率</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    <template x-for="d in dailyStats.slice().reverse()" :key="d.date">
+                    <template x-for="(d, idx) in mergedDailyStats" :key="d.date">
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-3 text-gray-800 font-medium" x-text="d.date"></td>
                             <td class="px-4 py-3 text-gray-600" x-text="d.total"></td>
                             <td class="px-4 py-3 text-blue-600 font-medium" x-text="d.entered"></td>
-                            <td class="px-4 py-3" x-text="d.overtime">
+                            <td class="px-4 py-3">
                                 <span :class="d.overtime > 0 ? 'text-orange-600' : 'text-gray-400'" x-text="d.overtime"></span>
                             </td>
                             <td class="px-4 py-3 text-green-600" x-text="d.avg_wait_minutes + '分'"></td>
@@ -155,6 +281,13 @@
                                 <span class="px-2 py-0.5 rounded text-xs"
                                       :class="d.overtime_rate > 20 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'"
                                       x-text="d.overtime_rate + '%'"></span>
+                            </td>
+                            <td class="px-4 py-3 text-purple-600 font-medium" x-text="d.apt_total || 0"></td>
+                            <td class="px-4 py-3 text-green-600" x-text="(d.apt_arrival_rate || 0) + '%'"></td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-0.5 rounded text-xs"
+                                      :class="(d.apt_no_show_rate || 0) > 10 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'"
+                                      x-text="(d.apt_no_show_rate || 0) + '%'"></span>
                             </td>
                         </tr>
                     </template>
@@ -176,6 +309,8 @@ function statsApp() {
         hourly: {},
         storeStats: [],
         dailyStats: [],
+        appointment: { summary: {}, room_type_stats: [], daily_stats: [] },
+        appointmentPeak: { peaks: {}, hour_stats: [], weekday_stats: [] },
 
         get maxHourlyCount() {
             return Math.max(...(this.hourly.hourly_stats || []).map(h => h.count), 1);
@@ -183,6 +318,28 @@ function statsApp() {
 
         get maxStoreCount() {
             return Math.max(...(this.storeStats || []).map(s => s.total), 1);
+        },
+
+        get maxAppointmentHourCount() {
+            return Math.max(...(this.appointmentPeak.hour_stats || []).map(h => h.total), 1);
+        },
+
+        get mergedDailyStats() {
+            const aptMap = {};
+            (this.appointment.daily_stats || []).forEach(d => {
+                aptMap[d.date] = d;
+            });
+            return (this.dailyStats || []).slice().reverse().map(d => {
+                const apt = aptMap[d.date] || {};
+                return {
+                    ...d,
+                    apt_total: apt.total || 0,
+                    apt_confirmed: apt.confirmed || 0,
+                    apt_no_show: apt.no_show || 0,
+                    apt_arrival_rate: apt.arrival_rate || 0,
+                    apt_no_show_rate: apt.no_show_rate || 0
+                };
+            });
         },
 
         heatLevelClass(level) {
@@ -205,6 +362,16 @@ function statsApp() {
             }[level] || 'bg-gray-400';
         },
 
+        heatBgClass(level) {
+            return {
+                0: 'bg-gray-50',
+                1: 'bg-yellow-50',
+                2: 'bg-yellow-100',
+                3: 'bg-red-100',
+                4: 'bg-red-200'
+            }[level] || 'bg-gray-50';
+        },
+
         heatBorderClass(level) {
             return {
                 0: 'border-gray-200 bg-gray-50',
@@ -218,7 +385,14 @@ function statsApp() {
         async loadAll() {
             const storesRes = await API.get('/api/stores?status=true');
             if (storesRes?.code === 0) this.stores = storesRes.data;
-            await Promise.all([this.loadOverview(), this.loadHourly(), this.loadStoreStats(), this.loadDaily()]);
+            await Promise.all([
+                this.loadOverview(),
+                this.loadHourly(),
+                this.loadStoreStats(),
+                this.loadDaily(),
+                this.loadAppointment(),
+                this.loadAppointmentPeak()
+            ]);
         },
 
         async loadOverview() {
@@ -241,6 +415,20 @@ function statsApp() {
         async loadDaily() {
             const res = await API.get('/api/stats/daily?days=30');
             if (res?.code === 0) this.dailyStats = res.data;
+        },
+
+        async loadAppointment() {
+            let url = '/api/stats/appointment?days=' + this.days;
+            if (this.store_id) url += '&store_id=' + this.store_id;
+            const res = await API.get(url);
+            if (res?.code === 0) this.appointment = res.data;
+        },
+
+        async loadAppointmentPeak() {
+            let url = '/api/stats/appointment-peak?days=' + this.days;
+            if (this.store_id) url += '&store_id=' + this.store_id;
+            const res = await API.get(url);
+            if (res?.code === 0) this.appointmentPeak = res.data;
         }
     }
 }

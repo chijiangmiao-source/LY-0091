@@ -18,6 +18,15 @@ NO_SHOW_THRESHOLD = 3
 APPOINTMENT_TIMEOUT_MINUTES = 15
 MAX_FUTURE_DAYS = 7
 
+NO_SHOW_PENALTY_LEVELS = {
+    0: {"level": 0, "name": "正常", "can_appointment": True, "can_onsite": True, "max_future_days": 7, "need_verify": False},
+    1: {"level": 1, "name": "一级警告", "can_appointment": True, "can_onsite": True, "max_future_days": 5, "need_verify": False},
+    2: {"level": 2, "name": "二级限制", "can_appointment": True, "can_onsite": True, "max_future_days": 3, "need_verify": False},
+    3: {"level": 3, "name": "三级封禁", "can_appointment": False, "can_onsite": False, "max_future_days": 0, "need_verify": False, "ban_days": 30},
+}
+
+NO_SHOW_RECORD_EXPIRE_DAYS = 90
+
 
 class Appointment(ormar.Model):
     class Meta(MainMeta):
@@ -114,3 +123,31 @@ def generate_time_slots(start_hour: int = 9, end_hour: int = 22, duration_minute
 
 
 DEFAULT_TIME_SLOTS = generate_time_slots()
+
+
+def get_no_show_penalty(no_show_count: int) -> dict:
+    if no_show_count <= 0:
+        return NO_SHOW_PENALTY_LEVELS[0].copy()
+    elif no_show_count == 1:
+        return NO_SHOW_PENALTY_LEVELS[1].copy()
+    elif no_show_count == 2:
+        return NO_SHOW_PENALTY_LEVELS[2].copy()
+    else:
+        return NO_SHOW_PENALTY_LEVELS[3].copy()
+
+
+async def get_no_show_count_with_penalty(phone: str, days: int = 30) -> dict:
+    start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    count = await NoShowRecord.objects.filter(
+        phone=phone,
+        appointment_date__gte=start_date
+    ).count()
+    penalty = get_no_show_penalty(count)
+    return {
+        "phone": phone,
+        "no_show_count": count,
+        "threshold": NO_SHOW_THRESHOLD,
+        "penalty": penalty,
+        "is_blocked": not penalty["can_appointment"] or not penalty["can_onsite"],
+        "remain_times": max(0, NO_SHOW_THRESHOLD - count)
+    }

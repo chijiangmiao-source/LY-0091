@@ -16,7 +16,7 @@ from app.routes import (
     QueueCallResource, QueueEnterResource, QueueLeaveResource,
     QueueOvertimeResource, QueueRequeueResource,
     QueueWaitingListResource, QueueStatusResource,
-    QueueNextCallResource, QueueSourceResource,
+    QueueNextCallResource, QueueSourceResource, QueueAutoCallResource,
     LostItemListResource, LostItemDetailResource,
     LostItemSealResource, LostItemClaimResource,
     LostItemDisposeResource, LostItemStatusResource,
@@ -109,6 +109,7 @@ def create_app():
     app.add_route("/api/queue/status", QueueStatusResource())
     app.add_route("/api/queue/sources", QueueSourceResource())
     app.add_route("/api/queue/next-call", QueueNextCallResource())
+    app.add_route("/api/queue/auto-call", QueueAutoCallResource())
     app.add_route("/api/queue/{record_id:int}", QueueDetailResource())
     app.add_route("/api/queue/{record_id:int}/call", QueueCallResource())
     app.add_route("/api/queue/{record_id:int}/enter", QueueEnterResource())

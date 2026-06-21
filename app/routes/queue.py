@@ -2,7 +2,10 @@ import falcon
 import json
 from datetime import datetime, timedelta
 from app.config import OVER_TIME_MINUTES
-from app.models import QueueRecord, FittingRoom, Store, QUEUE_STATUS, QUEUE_SOURCE, ROOM_STATUS
+from app.models import (
+    QueueRecord, FittingRoom, Store, QUEUE_STATUS, QUEUE_SOURCE, ROOM_STATUS,
+    get_no_show_count_with_penalty
+)
 
 
 FAIR_CALL_RATIO = 2
@@ -116,6 +119,16 @@ class QueueListResource:
         if not phone:
             raise falcon.HTTPBadRequest(title="参数错误", description="手机号不能为空")
 
+        penalty_info = await get_no_show_count_with_penalty(phone)
+        penalty = penalty_info["penalty"]
+        if not penalty["can_onsite"]:
+            raise falcon.HTTPBadRequest(
+                title="取号失败",
+                description=f"您近30天内爽约次数已达{penalty_info['no_show_count']}次，"
+                           f"当前处于【{penalty['name']}】状态，暂无法现场取号。"
+                           f"请联系工作人员处理或等待{penalty.get('ban_days', 30)}天后自动解封。"
+            )
+
         exist_active = await QueueRecord.objects.filter(
             phone=phone,
             status__in=["waiting", "called", "entered"]
@@ -144,10 +157,18 @@ class QueueListResource:
         )
         await record.save()
 
-        data = record.dict()
-        data["status_text"] = QUEUE_STATUS.get(record.status, record.status)
-        data["source_text"] = QUEUE_SOURCE.get(record.source, record.source)
-        resp.media = {"code": 0, "message": "取号成功", "data": data}
+        result = record.dict()
+        result["status_text"] = QUEUE_STATUS.get(record.status, record.status)
+        result["source_text"] = QUEUE_SOURCE.get(record.source, record.source)
+        result["no_show_warning"] = None
+        if penalty_info["no_show_count"] > 0:
+            result["no_show_warning"] = (
+                f"您近30天内爽约{penalty_info['no_show_count']}次，"
+                f"当前处于【{penalty['name']}】状态。"
+                f"再爽约{penalty_info['remain_times']}次将被封禁。"
+            )
+
+        resp.media = {"code": 0, "message": "取号成功", "data": result}
 
 
 class QueueDetailResource:
@@ -190,6 +211,18 @@ class QueueCallResource:
         if record.status != "waiting":
             raise falcon.HTTPBadRequest(title="叫号失败", description="当前状态不支持叫号")
 
+        store_id = record.store.id if record.store else None
+        fair_next = await get_fair_next_record(store_id)
+
+        if not fair_next:
+            raise falcon.HTTPBadRequest(title="叫号失败", description="当前无等待排队")
+
+        if fair_next.id != record.id:
+            raise falcon.HTTPBadRequest(
+                title="叫号失败",
+                description=f"根据公平策略，当前应叫号：{fair_next.ticket_number}（{fair_next.get_source_text()}），请按系统推荐顺序叫号"
+            )
+
         record.status = "called"
         record.call_time = datetime.now()
         await record.update()
@@ -231,7 +264,50 @@ class QueueNextCallResource:
                 "appointment_waiting_count": appointment_count,
                 "onsite_waiting_count": onsite_count,
                 "fair_ratio": f"1:1 (预约:现场交替)",
-                "suggestion": "建议按公平策略依次叫号"
+                "suggestion": "请按公平策略依次叫号，系统已禁止跳过叫号"
+            }
+        }
+
+
+class QueueAutoCallResource:
+    async def on_post(self, req, resp):
+        try:
+            data = await req.get_media()
+        except Exception:
+            data = {}
+        store_id = data.get("store_id") if isinstance(data, dict) else None
+
+        next_record = await get_fair_next_record(store_id)
+
+        if not next_record:
+            resp.media = {"code": 0, "message": "当前无等待排队", "data": None}
+            return
+
+        next_record.status = "called"
+        next_record.call_time = datetime.now()
+        await next_record.update()
+
+        waiting_query = QueueRecord.objects.filter(status="waiting").select_related("store")
+        if store_id is not None:
+            waiting_query = waiting_query.filter(store__id=store_id)
+
+        appointment_count = await waiting_query.filter(source="appointment").count()
+        onsite_count = await waiting_query.filter(source="on_site").count()
+
+        result = next_record.dict()
+        if next_record.store:
+            result["store_name"] = next_record.store.name
+        result["status_text"] = QUEUE_STATUS.get(next_record.status, next_record.status)
+        result["source_text"] = QUEUE_SOURCE.get(next_record.source, next_record.source)
+
+        resp.media = {
+            "code": 0,
+            "message": f"已自动叫号：{next_record.ticket_number}（{next_record.get_source_text()}）",
+            "data": {
+                "called_record": result,
+                "appointment_waiting_count": appointment_count,
+                "onsite_waiting_count": onsite_count,
+                "fair_ratio": "1:1 (预约:现场交替)"
             }
         }
 

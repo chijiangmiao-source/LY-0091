@@ -9,7 +9,7 @@ from app.routes.queue import (
     QueueCallResource, QueueEnterResource, QueueLeaveResource,
     QueueOvertimeResource, QueueRequeueResource,
     QueueWaitingListResource, QueueStatusResource,
-    QueueNextCallResource, QueueSourceResource
+    QueueNextCallResource, QueueSourceResource, QueueAutoCallResource
 )
 from app.routes.lost_item import (
     LostItemListResource, LostItemDetailResource,
@@ -43,7 +43,7 @@ __all__ = [
     "QueueCallResource", "QueueEnterResource", "QueueLeaveResource",
     "QueueOvertimeResource", "QueueRequeueResource",
     "QueueWaitingListResource", "QueueStatusResource",
-    "QueueNextCallResource", "QueueSourceResource",
+    "QueueNextCallResource", "QueueSourceResource", "QueueAutoCallResource",
     "LostItemListResource", "LostItemDetailResource",
     "LostItemSealResource", "LostItemClaimResource",
     "LostItemDisposeResource", "LostItemStatusResource",
